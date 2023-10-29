@@ -1,0 +1,16 @@
+[build]
+  cmd = "go build -o ./tmp/main ./cmd/server"
+  bin = "./tmp/main"
+  log = "build-errors.log"
+
+[watch]
+  includes = [
+    "/root/projects/golang/src/caravagio-api-golang/cmd/**/*",
+    "/root/projects/golang/src/caravagio-api-golang/internal/**/*",
+  ]
+  excludes = [
+    "tmp"
+  ]
+
+[logger]
+  level = "debug"
