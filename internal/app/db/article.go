@@ -7,7 +7,7 @@ import (
 	"caravagio-api-golang/internal/app/models"
 )
 
-type ArticleService interface {
+type ArticleRepo interface {
     GetArticle(ctx context.Context, articleID string) (models.Article, error)
 }
 

@@ -25,6 +25,7 @@ require (
 	github.com/go-sql-driver/mysql v1.7.1 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gohugoio/hugo v0.119.0 // indirect
+	github.com/google/uuid v1.4.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.5 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
@@ -34,6 +35,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
+	github.com/sashabaranov/go-openai v1.16.0 // indirect
 	github.com/spf13/afero v1.10.0 // indirect
 	github.com/tdewolff/parse/v2 v2.7.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
