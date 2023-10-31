@@ -8,16 +8,15 @@ import (
 )
 
 type ArticleService struct {
-	db           db.ArticleRepo
+	db           db.DBArticleRepo
 	taskQueueSvc TaskQueueService
 }
 
-func NewArticleService(db db.ArticleRepo, taskQueueSvc *TaskQueueService) *ArticleService {
+func NewArticleService(db db.DBArticleRepo, taskQueueSvc *TaskQueueService) *ArticleService {
     return &ArticleService{db: db, taskQueueSvc: *taskQueueSvc}
 }
 
 func (s *ArticleService) GetArticle(ctx context.Context, articleID string) (models.Article, error) {
-	// get fist row from articles table
 
 	article, err := s.db.GetArticle(ctx, articleID)
 
@@ -26,4 +25,15 @@ func (s *ArticleService) GetArticle(ctx context.Context, articleID string) (mode
 	}
 
 	return article, nil
+}
+
+func (s *ArticleService) UpdateArticle(ctx context.Context, article *models.Article) (int, error) {
+
+	affectedRows, err := s.db.UpdateArticle(ctx, article)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return affectedRows, nil
 }

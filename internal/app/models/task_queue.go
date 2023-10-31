@@ -16,9 +16,10 @@ type TaskQueue struct {
 	FormattedPrompt sql.NullString  `db:"formatted_prompt"`
 	ArticleID       string          `db:"article_id"`
 	PromptID        string          `db:"prompt_id"`
+	GptModel        string          `db:"gpt_model"`
 }
 
-func NewTaskQueue(headingID, status, response, formattedPrompt, articleID, promptID string, cost float64) TaskQueue {
+func NewTaskQueue(headingID, status, response, formattedPrompt, articleID, promptID string, cost float64, gptModel string) TaskQueue {
 	return TaskQueue{
 		ID:              uuid.New().String(),
 		HeadingID:       headingID,
@@ -28,5 +29,6 @@ func NewTaskQueue(headingID, status, response, formattedPrompt, articleID, promp
 		FormattedPrompt: sql.NullString{String: formattedPrompt, Valid: true},
 		ArticleID:       articleID,
 		PromptID:        promptID,
+		GptModel:        gptModel,
 	}
 }

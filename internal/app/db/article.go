@@ -5,10 +5,13 @@ import (
 	"database/sql"
 	"fmt"
 	"caravagio-api-golang/internal/app/models"
+	"encoding/json"
+	"errors"
 )
 
 type ArticleRepo interface {
     GetArticle(ctx context.Context, articleID string) (models.Article, error)
+	UpdateArticle(ctx context.Context, article *models.Article) (models.Article, error)
 }
 
 type DBArticleRepo struct {
@@ -43,6 +46,35 @@ func (s *DBArticleRepo) GetArticle(ctx context.Context, articleID string) (model
 
 	return article, nil
 
+}
+
+func (s *DBArticleRepo) UpdateArticle(ctx context.Context, article *models.Article) (int, error) {
+
+	headingData, err := json.MarshalIndent(article.HeadingData, "", " ")
+	if err != nil {
+		fmt.Println("JSON ERR")
+		fmt.Println(err)
+		return 0, err
+	}
+
+	result, err := s.db.ExecContext(ctx, "UPDATE articles SET heading_data = ? WHERE article_id = ?", string(headingData), article.ArticleID)
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	if rowsAffected == 0 {
+		return 0, errors.New("no rows updated")
+	}
+
+	// Populate updatedArticle if needed, perhaps by querying the updated row
+	return int(rowsAffected), nil
 }
 
 func NewDBArticleRepo(db *sql.DB) *DBArticleRepo {

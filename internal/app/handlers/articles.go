@@ -1,11 +1,11 @@
 package articleshandler
 
 import (
-	"github.com/gin-gonic/gin"
 	"caravagio-api-golang/internal/app/services"
-	"net/http"
 	"encoding/json"
-	// "fmt"
+	"log"
+	"net/http"
+	"github.com/gin-gonic/gin"
 	"caravagio-api-golang/internal/app/models"
 )
 
@@ -39,6 +39,8 @@ func (h *Handler) GetArticle(c *gin.Context) {
 
 func (h *Handler) UpdateArticle(c *gin.Context) {
 	var requestBody models.ArticleBody
+
+	articleID := c.Param("articleID")
 	if err := c.BindJSON(&requestBody); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -49,6 +51,37 @@ func (h *Handler) UpdateArticle(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+
+	
+	headingData := models.HeadingData{
+		Data: []models.Node{},
+	}
+
+	initialNode := models.Node{
+		ID: requestBody.Data.ID,
+		Children: requestBody.Data.Children,
+		Tag: requestBody.Data.Tag,
+		Text: requestBody.Data.Text,
+		Keywords: requestBody.Data.Keywords,
+		PromptID: requestBody.Data.PromptID,
+		Expanded: requestBody.Data.Expanded,
+		IsCompleted: requestBody.Data.IsCompleted,
+		Level: requestBody.Data.Level,
+		Length: requestBody.Data.Length,
+		MoreInfo: requestBody.Data.MoreInfo,
+		Response: requestBody.Data.Response,
+	}
+
+	headingData.Data = append(headingData.Data, initialNode)
+
+	article := models.Article{
+		ArticleID: articleID,
+		HeadingData: headingData,
+	}
+
+	log.Println("ArticleID")
+	log.Println(article.ArticleID)
+	h.ArticleService.UpdateArticle(c, &article)
 
 	c.Data(http.StatusOK, "application/json", prettyJSON)
 }
