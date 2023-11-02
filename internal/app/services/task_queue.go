@@ -14,11 +14,12 @@ type TaskQueueService struct {
 }
 
 const (
-	TaskStatusPending    = "pending"
-	TaskStatusCompleted  = "completed"
-	TaskStatusFailed     = "failed"
-	TaskStatusRetrying   = "retrying"
-	TaskStatusInProgress = "in_progress"
+	TaskStatusPending          = "pending"
+	TaskStatusCompleted        = "completed"
+	TaskStatusFailed           = "failed"
+	TaskStatusRetrying         = "retrying"
+	TaskStatusInProgress       = "in_progress"
+	TaskStatusCompletedAndSent = "completed_and_sent"
 )
 
 func NewTaskQueueService(repo models.TaskQueueRepo, promptService *PromptService) *TaskQueueService {
@@ -63,59 +64,84 @@ func (s *TaskQueueService) UpdateTask(ctx context.Context, task models.TaskQueue
 	return *updatedTask, nil
 }
 
+// delete task
+
+func (s *TaskQueueService) DeleteTask(ctx context.Context, task models.TaskQueue) error {
+	err := s.db.DeleteTask(ctx, task)
+	if err != nil {
+		log.Printf("Failed to delete task: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (s *TaskQueueService) MarkTasksAsCompletedAndSent(ctx context.Context, tasks []models.TaskQueue) error {
+	for _, task := range tasks {
+		task.Status = TaskStatusCompletedAndSent
+		_, err := s.UpdateTask(ctx, task)
+		if err != nil {
+			log.Printf("Failed to update task: %v", err)
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article models.Article) ([]models.TaskQueue, error) {
 
 	tasks := []models.TaskQueue{}
 
-	t := models.TaskQueue{
-		ID:              uuid.New().String(),
-		ArticleID:       article.ArticleID,
-		Status:          TaskStatusPending,
-		HeadingID:       article.HeadingData.Data[0].ID,
-		Response:        sql.NullString{String: "", Valid: false},
-		Cost:            sql.NullFloat64{Float64: 0, Valid: false},
-		FormattedPrompt: sql.NullString{String: "", Valid: false},
-		PromptID:        article.HeadingData.Data[0].PromptID,
-		GptModel:        "gpt-3.5",
+	if !article.HeadingData.Data[0].IsCompleted {
+		log.Println("Creating task for H1")
+		t := models.TaskQueue{
+			ID:              uuid.New().String(),
+			ArticleID:       article.ArticleID,
+			Status:          TaskStatusPending,
+			HeadingID:       article.HeadingData.Data[0].ID,
+			Response:        sql.NullString{String: "", Valid: false},
+			Cost:            sql.NullFloat64{Float64: 0, Valid: false},
+			FormattedPrompt: sql.NullString{String: "", Valid: false},
+			PromptID:        article.HeadingData.Data[0].PromptID,
+			GptModel:        "gpt-3.5",
+		}
+
+		prompt, err := s.PromptService.GetPrompt(ctx, t.PromptID)
+
+		if err != nil {
+			log.Printf("Failed to get prompt: %v", err)
+			return nil, err
+		}
+
+		formattedPrompt := s.PromptService.GenerateFormattedPromptH1Intro(&prompt, &article)
+
+		log.Println("Formatted Prompt")
+		log.Println(article.MainKeywords)
+		log.Println(t.PromptID)
+
+		if err != nil {
+			log.Printf("Failed to generate formatted prompt: %v", err)
+			return nil, err
+		}
+
+		t.FormattedPrompt.String = formattedPrompt
+		t.FormattedPrompt.Valid = true
+		s.CreateTask(ctx, t)
 	}
-
-	prompt, err := s.PromptService.GetPrompt(ctx, t.PromptID)
-
-	if err != nil {
-		log.Printf("Failed to get prompt: %v", err)
-		return nil, err
-	}
-
-	// Generate formatted prompt
-
-	formattedPrompt, err := s.PromptService.GenerateFormattedPromptH1Intro(&prompt, &article)
-
-	if err != nil {
-		log.Printf("Failed to generate formatted prompt: %v", err)
-		return nil, err
-	}
-
-	t.FormattedPrompt.String = formattedPrompt
-	t.FormattedPrompt.Valid = true
-
-	s.CreateTask(ctx, t)
 
 	for _, header := range article.HeadingData.Data[0].Children {
 
 		if header.Level == 2 {
+			log.Println("Creating task for H2")
+
+			log.Println(header)
+			if header.IsCompleted {
+				continue
+			}
+
 			prompt, err := s.PromptService.GetPrompt(ctx, header.PromptID)
 
 			if err != nil {
 				log.Printf("Failed to get prompt: %v", err)
-				return nil, err
-			}
-
-			// Generate formatted prompt
-
-			_, err = s.PromptService.GenerateFormattedPromptH2Intro(&prompt, &header, &article)
-
-			if err != nil {
-				log.Printf("Failed to generate formatted prompt: %v", err)
 				return nil, err
 			}
 
@@ -131,7 +157,7 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 				GptModel:        "gpt-3.5",
 			}
 
-			formattedPrompt, err := s.PromptService.GenerateFormattedPromptH2Intro(&prompt, &header, &article)
+			formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &header, &article)
 
 			if err != nil {
 				log.Printf("Failed to generate formatted prompt: %v", err)
@@ -143,6 +169,41 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 
 			tasks = append(tasks, t)
 
+			if len(header.Children) > 0 {
+				for _, subHeader := range header.Children {
+					prompt, err := s.PromptService.GetPrompt(ctx, subHeader.PromptID)
+
+					if err != nil {
+						log.Printf("Failed to get prompt: %v", err)
+						return nil, err
+					}
+
+					t := models.TaskQueue{
+						ID:              uuid.New().String(),
+						ArticleID:       article.ArticleID,
+						Status:          TaskStatusPending,
+						HeadingID:       subHeader.ID,
+						Response:        sql.NullString{String: "", Valid: false},
+						Cost:            sql.NullFloat64{Float64: 0, Valid: false},
+						FormattedPrompt: sql.NullString{String: "", Valid: false},
+						PromptID:        subHeader.PromptID,
+						GptModel:        "gpt-3.5",
+					}
+
+					formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &subHeader, &article)
+
+					if err != nil {
+						log.Printf("Failed to generate formatted prompt: %v", err)
+						return nil, err
+					}
+
+					t.FormattedPrompt.String = formattedPrompt
+					t.FormattedPrompt.Valid = true
+
+					tasks = append(tasks, t)
+				}
+			}
+
 		}
 	}
 
@@ -151,4 +212,33 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 	}
 
 	return nil, nil
+}
+
+func (s *TaskQueueService) GetAllCompletedTasks(ctx context.Context) ([]models.TaskQueue, error) {
+	tasks, err := s.db.GetAllCompletedTasks(ctx)
+	if err != nil {
+		log.Printf("Failed to get all tasks: %v", err)
+		return nil, err
+	}
+	return tasks, nil
+}
+
+func (s *TaskQueueService) AddTasksToHistory(ctx context.Context, tasks []models.TaskQueue) error {
+	err := s.db.AddTasksToHistory(ctx, tasks)
+
+	if err != nil {
+		log.Printf("Failed to add tasks to history: %v", err)
+		return err
+	}
+
+	for _, task := range tasks {
+		err := s.DeleteTask(ctx, task)
+
+		if err != nil {
+			log.Printf("Failed to delete task: %v", err)
+			return err
+		}
+	}
+
+	return nil
 }

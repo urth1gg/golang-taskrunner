@@ -1,11 +1,11 @@
-package services 
+package services
 
 import (
 	"errors"
 	"strings"
 	// "caravagio-api-golang/internal/app/db"
-	openai "github.com/sashabaranov/go-openai"
 	"context"
+	openai "github.com/sashabaranov/go-openai"
 )
 
 type OpenAIService struct {
@@ -17,6 +17,9 @@ func NewOpenAIService(apiKey string) *OpenAIService {
 	client := openai.NewClient(apiKey)
 	return &OpenAIService{client: client}
 }
+func (s *OpenAIService) SetOpenAIKey(apiKey string) {
+	s.client = openai.NewClient(apiKey)
+}
 
 func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string) (string, error) {
 	if strings.TrimSpace(inputText) == "" {
@@ -25,7 +28,7 @@ func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string) (string
 
 	request := openai.CompletionRequest{
 		Prompt:    inputText,
-		Model:     "text-davinci-003",
+		Model:     "text-ada-001",
 		MaxTokens: 150,
 	}
 

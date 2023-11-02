@@ -3,6 +3,7 @@ package services
 import (
 	"caravagio-api-golang/internal/app/models"
 	"context"
+	"fmt"
 	"log"
 	"time"
 )
@@ -13,6 +14,8 @@ type TaskExecutor struct {
 	MaxRetries       int
 	TaskQueueService *TaskQueueService
 	OpenAIService    *OpenAIService
+	SettingsService  *SettingsService
+	ArticleService   *ArticleService
 	RetryDelay       time.Duration
 }
 
@@ -22,13 +25,16 @@ type Task struct {
 	LastError error
 }
 
-func NewTaskExecutor(openAiService *OpenAIService, taskQueueService *TaskQueueService) *TaskExecutor {
+func NewTaskExecutor(openAiService *OpenAIService, taskQueueService *TaskQueueService, settingsService *SettingsService, articleService *ArticleService) *TaskExecutor {
 	return &TaskExecutor{
 		TaskQueue:        make(chan Task, 100),
 		RetryQueue:       make(chan Task, 100),
 		MaxRetries:       3,
 		RetryDelay:       1 * time.Minute,
 		TaskQueueService: taskQueueService,
+		OpenAIService:    openAiService,
+		SettingsService:  settingsService,
+		ArticleService:   articleService,
 	}
 }
 
@@ -40,6 +46,14 @@ func (te *TaskExecutor) LoadPendingTasks(ctx context.Context) {
 	}
 	for _, task := range tasks {
 		te.TaskQueue <- Task{Data: task}
+		task.Status = TaskStatusInProgress
+
+		_, err := te.TaskQueueService.UpdateTask(ctx, task)
+
+		if err != nil {
+			fmt.Println(err)
+		}
+
 	}
 }
 
@@ -66,12 +80,6 @@ func (te *TaskExecutor) worker() {
 					log.Printf("Error updating task status: %v", updateErr)
 				}
 			}
-		} else {
-			task.Data.Status = TaskStatusCompleted
-			_, updateErr := te.TaskQueueService.UpdateTask(context.Background(), task.Data)
-			if updateErr != nil {
-				log.Printf("Error updating task status: %v", updateErr)
-			}
 		}
 	}
 }
@@ -86,8 +94,27 @@ func (te *TaskExecutor) retryWorker() {
 func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	ctx := context.Background()
 
-	log.Println("PROCESSING TASK")
 	if taskData.GptModel == "gpt-3.5" {
+		articleId := taskData.ArticleID
+
+		article, err := te.ArticleService.GetArticle(ctx, articleId)
+
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		articleUserId := article.UserID
+
+		settings, err := te.SettingsService.GetSetting(ctx, articleUserId)
+
+		te.OpenAIService.SetOpenAIKey(settings.APIKey.String)
+
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
 		resp, err := te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String)
 
 		if err != nil {
@@ -97,6 +124,7 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 
 		taskData.Response.String = resp
 		taskData.Response.Valid = true
+		taskData.Status = TaskStatusCompleted
 
 		_, err = te.TaskQueueService.UpdateTask(ctx, taskData)
 
@@ -105,7 +133,30 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 			return err
 		}
 
-		log.Println(resp)
+		// log.Println(resp)
+		log.Println("Going once")
+		log.Println(taskData.ID)
+		// log.Println(taskData.Response.String)
+		// find heading with headingID
+
+		headingIndex := 0
+
+		for index, node := range article.HeadingData.Data {
+			if node.ID == taskData.HeadingID {
+				headingIndex = index
+			}
+		}
+
+		// update heading with response
+
+		article.HeadingData.Data[headingIndex].Response = taskData.Response.String
+
+		_, err = te.ArticleService.UpdateArticle(ctx, &article)
+
+		if err != nil {
+			log.Println(err)
+		}
+
 	}
 
 	return nil
@@ -118,7 +169,6 @@ func (te *TaskExecutor) AddTask(data models.TaskQueue) {
 func (te *TaskExecutor) RunScheduledTaskLoader(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 
-	log.Println("RUNNING")
 	go func() {
 		for range ticker.C {
 			ctx := context.Background()

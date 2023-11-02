@@ -1,16 +1,17 @@
 package db
 
 import (
+	"caravagio-api-golang/internal/app/models"
 	"context"
 	"database/sql"
-	"time"
 	"fmt"
-	"caravagio-api-golang/internal/app/models"
+	"time"
 )
 
 type APIKey struct {
-	Key       string
-	Expiration models.NullTime
+	Key        string          `sql:"key"`
+	Expiration models.NullTime `sql:"expiration"`
+	UserID     string          `sql:"user_id"`
 }
 
 type AuthRepo interface {
@@ -28,9 +29,10 @@ func NewDBAuthRepo(db *sql.DB) *DBAuthRepo {
 func (r *DBAuthRepo) GetAPIKey(ctx context.Context, key string) (*APIKey, error) {
 	var apiKey APIKey
 	currentTime := time.Now().UTC()
-	err := r.db.QueryRowContext(ctx, "SELECT `key`, expiration FROM api_keys WHERE `key` = ? AND expiration > ?", key, currentTime).Scan(
+	err := r.db.QueryRowContext(ctx, "SELECT `key`, expiration, user_id FROM api_keys WHERE `key` = ? AND expiration > ?", key, currentTime).Scan(
 		&apiKey.Key,
 		&apiKey.Expiration,
+		&apiKey.UserID,
 	)
 
 	if err != nil {

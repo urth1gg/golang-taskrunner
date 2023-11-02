@@ -6,7 +6,6 @@ import (
 	"caravagio-api-golang/internal/app/middleware"
 	"caravagio-api-golang/internal/app/services"
 	// "caravagio-api-golang/internal/app/models"
-	// "context"
 	"fmt"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -38,75 +37,39 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	promptRepo := db.NewDBPromptRepo(conn.DB)
-	promptService := services.NewPromptService(promptRepo)
-
-	taskQueueRepo := db.NewDBTaskQueueRepo(conn.DB)
-	taskQueueService := services.NewTaskQueueService(taskQueueRepo, promptService)
-
 	authRepo := db.NewDBAuthRepo(conn.DB)
 	authService := services.NewAuthService(authRepo)
 	authMiddleware := middlewares.NewAuthMiddleware(authService)
 
 	r.Use(authMiddleware.Middleware())
 
+	promptRepo := db.NewDBPromptRepo(conn.DB)
+	promptService := services.NewPromptService(promptRepo)
+
+	taskQueueRepo := db.NewDBTaskQueueRepo(conn.DB)
+	taskQueueService := services.NewTaskQueueService(taskQueueRepo, promptService)
+
 	articleRepo := db.NewDBArticleRepo(conn.DB)
 	articleService := services.NewArticleService(*articleRepo, taskQueueService)
-	articleHandler := articleshandler.NewHandler(articleService)
+	articleHandler := handlers.NewArticleHandler(articleService, taskQueueService)
 
-	openAiService := services.NewOpenAIService("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")
-	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService)
-	taskExecutor.RunScheduledTaskLoader(5 * time.Minute) // Run every 5 minutes
-	taskExecutor.StartWorkers(10)                        // Start 10 workers
+	settingsRepo := db.NewDBSettingsRepo(conn.DB)
+	settingsService := services.NewSettingsService(settingsRepo)
 
-	// ctx := context.Background()
-	// taskQueue := models.NewTaskQueue("123", "done", "response", "formattedPrompt", "ff753636-0098-44ae-bd6e-aceb72ee5efc", "831a62f3-7504-11ee-b232-00155db8d1fa", 0.0)
+	openAiService := services.NewOpenAIService("")
+	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService)
+	taskExecutor.RunScheduledTaskLoader(500 * time.Millisecond) // Run every 5 minutes
+	taskExecutor.StartWorkers(10)                               // Start 10 workers
 
-	// _, err = taskQueueService.CreateTask(ctx, taskQueue)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// ctx := context.Background()
-	// article, err := articleService.GetArticle(ctx, "81754eaa-caf6-4f16-92ec-e57aff969863")
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// taskQueueService.CreateTasksFromArticle(ctx, article)
-	// promptText := `
-	// 	Write engaging and interesting introduction to article about the topic {h1_title}. Content should be unconventional and attract the attention of the reader. When the reader reads the introduction, he should want to read the whole article. Refer to the reader, but don't write words like "hi", "welcome", "hello" etc. Below you can find all headings that should be in the article, as well as keywords - so you know what the whole article is about. You can (but you don't have to) use the keywords and headings while writing the introduction.
-
-	// 	All headings:
-	// 	{all_header}
-
-	// 	All keywords:
-	// 	{keywords}
-	// `
-
-	// prompt := models.Prompt{
-	// 	PromptID: "831a62f3-7504-11ee-b232-00155db8d1fa",
-	// 	TextArea: sql.NullString{
-	// 		String: promptText,
-	// 		Valid:  true,
-	// 	},
-	// }
-
-	// formattedText, err := articleService.GenerateFormattedPromptH1Intro(&prompt, &article)
-
-	// if err != nil {
-	// 	fmt.Println(err)
-	// }
-
-	// fmt.Println(formattedText)
+	eventsService := services.NewEventsService(taskQueueService)
+	eventsHandler := handlers.NewEventsHandler(eventsService, authService, taskQueueService)
 
 	r.GET("/articles", articleHandler.HelloWorld)
 	r.GET("/articles/:articleID", articleHandler.GetArticle)
 	r.PATCH("/articles/:articleID", articleHandler.UpdateArticle)
+	// r.POST("/articles/:articleID/regenerate", articleHandler.RegenerateHandler)
+	r.GET("/events/:userID", eventsHandler.SendData)
 
-	//r.POST("/articles/:articleID/generate", articleHandler.UpdateArticle)
-
-	// Start the server
 	r.Run(":8080")
 }
 

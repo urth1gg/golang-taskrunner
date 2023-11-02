@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/google/uuid"
 )
 
 type TaskQueueRepo interface {
@@ -63,10 +64,9 @@ func (r *DBTaskQueueRepo) CreateTask(ctx context.Context, t models.TaskQueue) (*
 	return &t, nil
 }
 
-
 func (r *DBTaskQueueRepo) GetAllPendingTasks(ctx context.Context) ([]models.TaskQueue, error) {
 	var tasks []models.TaskQueue
-	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id FROM tasks_queue WHERE status = 'pending'"
+	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model FROM tasks_queue WHERE status = 'pending'"
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		fmt.Println(err)
@@ -85,6 +85,39 @@ func (r *DBTaskQueueRepo) GetAllPendingTasks(ctx context.Context) ([]models.Task
 			&task.FormattedPrompt,
 			&task.ArticleID,
 			&task.PromptID,
+			&task.GptModel,
+		)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
+}
+
+func (r *DBTaskQueueRepo) GetAllCompletedTasks(ctx context.Context) ([]models.TaskQueue, error) {
+	var tasks []models.TaskQueue
+	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model FROM tasks_queue WHERE status = 'completed'"
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var task models.TaskQueue
+		err := rows.Scan(
+			&task.ID,
+			&task.HeadingID,
+			&task.Status,
+			&task.Response,
+			&task.Cost,
+			&task.CreatedAt,
+			&task.FormattedPrompt,
+			&task.ArticleID,
+			&task.PromptID,
+			&task.GptModel,
 		)
 		if err != nil {
 			fmt.Println(err)
@@ -102,6 +135,55 @@ func (r *DBTaskQueueRepo) UpdateTask(ctx context.Context, task models.TaskQueue)
 		fmt.Println(err)
 		return nil, err
 	}
-	return &task, nil
+
+	query = "SELECT status, response, cost FROM tasks_queue WHERE id = ?"
+
+	task2 := models.TaskQueue{}
+	err = r.db.QueryRowContext(ctx, query, task.ID).Scan(
+		&task2.Status,
+		&task2.Response,
+		&task2.Cost,
+	)
+
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	return &task2, nil
 }
 
+// If the logic gets more complicated, we can move this to a separate repo
+func (r *DBTaskQueueRepo) AddTasksToHistory(ctx context.Context, tasks []models.TaskQueue) error {
+	query := "INSERT INTO tasks_queue_history (id, heading_id, status, response, cost, formatted_prompt, article_id, prompt_id, gpt_model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+
+	for _, task := range tasks {
+		_, err := r.db.ExecContext(ctx, query,
+			uuid.New().String(),
+			task.HeadingID,
+			task.Status,
+			task.Response,
+			task.Cost,
+			task.FormattedPrompt,
+			task.ArticleID,
+			task.PromptID,
+			task.GptModel,
+		)
+		if err != nil {
+			fmt.Println(err)
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *DBTaskQueueRepo) DeleteTask(ctx context.Context, task models.TaskQueue) error {
+	query := "DELETE FROM tasks_queue WHERE heading_id = ?"
+	_, err := r.db.ExecContext(ctx, query, task.HeadingID)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	return nil
+}
