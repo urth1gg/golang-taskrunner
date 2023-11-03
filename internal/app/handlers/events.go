@@ -52,18 +52,21 @@ func (h *EventsHandler) SendData(c *gin.Context) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Transfer-Encoding", "chunked")
 
 	for {
 		ctx := context.Background()
 		tasks, err := h.EventsService.GetAllCompletedTasks()
 
-		if len(*tasks) == 0 {
-			time.Sleep(555 * time.Millisecond)
-			continue
-		}
-
 		if err != nil {
 			fmt.Println(err)
+		}
+
+		if len(*tasks) == 0 {
+			time.Sleep(2500 * time.Millisecond)
+			fmt.Fprintf(w, "data: %s\n\n", "{}")
+			flusher.Flush()
+			continue
 		}
 
 		h.TaskQueueService.MarkTasksAsCompletedAndSent(ctx, *tasks)
@@ -75,6 +78,7 @@ func (h *EventsHandler) SendData(c *gin.Context) {
 
 		if len(*tasks) > 0 {
 
+			fmt.Println("Sending tasks to client", len(*tasks))
 			data, err := json.Marshal(gin.H{"tasks": tasks})
 			if err != nil {
 				fmt.Println("Failed to marshal tasks:", err)
@@ -86,7 +90,7 @@ func (h *EventsHandler) SendData(c *gin.Context) {
 		}
 
 		flusher.Flush()
-		time.Sleep(555 * time.Millisecond)
+		time.Sleep(2500 * time.Millisecond)
 	}
 
 }

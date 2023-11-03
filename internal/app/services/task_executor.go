@@ -91,6 +91,22 @@ func (te *TaskExecutor) retryWorker() {
 	}
 }
 
+func updateResponse(headingData *[]models.Node, headingID string, response string) bool {
+	for i, node := range *headingData {
+		if node.ID == headingID {
+			(*headingData)[i].Response = response
+			return true // Node found and updated
+		}
+		// If the node has children, search recursively
+		if len((*headingData)[i].Children) > 0 {
+			if updateResponse(&((*headingData)[i].Children), headingID, response) {
+				return true // Node found and updated in children
+			}
+		}
+	}
+	return false // Node not found
+}
+
 func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	ctx := context.Background()
 
@@ -133,23 +149,17 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 			return err
 		}
 
-		// log.Println(resp)
 		log.Println("Going once")
 		log.Println(taskData.ID)
-		// log.Println(taskData.Response.String)
-		// find heading with headingID
 
-		headingIndex := 0
-
-		for index, node := range article.HeadingData.Data {
-			if node.ID == taskData.HeadingID {
-				headingIndex = index
-			}
+		found := updateResponse(&article.HeadingData.Data, taskData.HeadingID, taskData.Response.String)
+		if !found {
+			log.Println("Heading not found")
 		}
 
 		// update heading with response
 
-		article.HeadingData.Data[headingIndex].Response = taskData.Response.String
+		//article.HeadingData.Data[0].Children[0].Response = taskData.Response.String
 
 		_, err = te.ArticleService.UpdateArticle(ctx, &article)
 
