@@ -24,7 +24,7 @@ func NewDBTaskQueueRepo(db *sql.DB) *DBTaskQueueRepo {
 
 func (r *DBTaskQueueRepo) GetTask(ctx context.Context, taskID string) (*models.TaskQueue, error) {
 	var task models.TaskQueue
-	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id FROM tasks_queue WHERE id = ?"
+	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, continue_generating FROM tasks_queue WHERE id = ?"
 	err := r.db.QueryRowContext(ctx, query, taskID).Scan(
 		&task.ID,
 		&task.HeadingID,
@@ -35,6 +35,7 @@ func (r *DBTaskQueueRepo) GetTask(ctx context.Context, taskID string) (*models.T
 		&task.FormattedPrompt,
 		&task.ArticleID,
 		&task.PromptID,
+		&task.ContinueGenerating,
 	)
 
 	if err != nil {
@@ -44,7 +45,7 @@ func (r *DBTaskQueueRepo) GetTask(ctx context.Context, taskID string) (*models.T
 }
 
 func (r *DBTaskQueueRepo) CreateTask(ctx context.Context, t models.TaskQueue) (*models.TaskQueue, error) {
-	query := "INSERT INTO tasks_queue (id, heading_id, status, response, cost, formatted_prompt, article_id, prompt_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+	query := "INSERT INTO tasks_queue (id, heading_id, status, response, cost, formatted_prompt, article_id, prompt_id, continue_generating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 	_, err := r.db.ExecContext(ctx, query,
 		t.ID,
@@ -55,6 +56,7 @@ func (r *DBTaskQueueRepo) CreateTask(ctx context.Context, t models.TaskQueue) (*
 		t.FormattedPrompt,
 		t.ArticleID,
 		t.PromptID,
+		t.ContinueGenerating,
 	)
 	if err != nil {
 		fmt.Println(err)
@@ -66,7 +68,7 @@ func (r *DBTaskQueueRepo) CreateTask(ctx context.Context, t models.TaskQueue) (*
 
 func (r *DBTaskQueueRepo) GetAllPendingTasks(ctx context.Context) ([]models.TaskQueue, error) {
 	var tasks []models.TaskQueue
-	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model FROM tasks_queue WHERE status = 'pending'"
+	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model, continue_generating FROM tasks_queue WHERE status = 'pending'"
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		fmt.Println(err)
@@ -86,6 +88,7 @@ func (r *DBTaskQueueRepo) GetAllPendingTasks(ctx context.Context) ([]models.Task
 			&task.ArticleID,
 			&task.PromptID,
 			&task.GptModel,
+			&task.ContinueGenerating,
 		)
 		if err != nil {
 			fmt.Println(err)
@@ -98,7 +101,7 @@ func (r *DBTaskQueueRepo) GetAllPendingTasks(ctx context.Context) ([]models.Task
 
 func (r *DBTaskQueueRepo) GetAllCompletedTasks(ctx context.Context) ([]models.TaskQueue, error) {
 	var tasks []models.TaskQueue
-	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model FROM tasks_queue WHERE status = 'completed'"
+	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model, continue_generating FROM tasks_queue WHERE status = 'completed'"
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		fmt.Println(err)
@@ -118,6 +121,7 @@ func (r *DBTaskQueueRepo) GetAllCompletedTasks(ctx context.Context) ([]models.Ta
 			&task.ArticleID,
 			&task.PromptID,
 			&task.GptModel,
+			&task.ContinueGenerating,
 		)
 		if err != nil {
 			fmt.Println(err)
@@ -155,7 +159,7 @@ func (r *DBTaskQueueRepo) UpdateTask(ctx context.Context, task models.TaskQueue)
 
 // If the logic gets more complicated, we can move this to a separate repo
 func (r *DBTaskQueueRepo) AddTasksToHistory(ctx context.Context, tasks []models.TaskQueue) error {
-	query := "INSERT INTO tasks_queue_history (id, heading_id, status, response, cost, formatted_prompt, article_id, prompt_id, gpt_model) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+	query := "INSERT INTO tasks_queue_history (id, heading_id, status, response, cost, formatted_prompt, article_id, prompt_id, gpt_model, continue_generating) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 
 	for _, task := range tasks {
 		_, err := r.db.ExecContext(ctx, query,
@@ -168,6 +172,7 @@ func (r *DBTaskQueueRepo) AddTasksToHistory(ctx context.Context, tasks []models.
 			task.ArticleID,
 			task.PromptID,
 			task.GptModel,
+			task.ContinueGenerating,
 		)
 		if err != nil {
 			fmt.Println(err)

@@ -1,21 +1,22 @@
-package db 
+package db
 
 import (
+	"caravagio-api-golang/internal/app/models"
 	"context"
 	"database/sql"
-	"fmt"
-	"caravagio-api-golang/internal/app/models"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 )
 
 type ArticleRepo interface {
-    GetArticle(ctx context.Context, articleID string) (models.Article, error)
+	GetArticle(ctx context.Context, articleID string) (models.Article, error)
 	UpdateArticle(ctx context.Context, article *models.Article) (models.Article, error)
 }
 
 type DBArticleRepo struct {
-    db *sql.DB
+	db *sql.DB
 }
 
 func (s *DBArticleRepo) GetArticle(ctx context.Context, articleID string) (models.Article, error) {
@@ -77,6 +78,92 @@ func (s *DBArticleRepo) UpdateArticle(ctx context.Context, article *models.Artic
 	return int(rowsAffected), nil
 }
 
+// TODO: Make separate function that takes in a slice of strings and updates those fields
+func (s *DBArticleRepo) UpdateArticleGeneric(ctx context.Context, article *models.Article, fieldsToUpdate []string) (int, error) {
+	articleID := article.ArticleID
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	// Rollback the transaction in case of a panic or error
+	defer tx.Rollback()
+
+	// Build the SQL statement dynamically based on the fieldsToUpdate slice
+	setClauses := []string{}
+	args := []interface{}{}
+	for _, field := range fieldsToUpdate {
+		var value interface{}
+		switch field {
+		case "UserID":
+			value = article.UserID
+		case "Language":
+			value = article.Language
+		case "main_keywords":
+			value = article.MainKeywords
+		case "URLs":
+			value = article.URLs
+		case "Status":
+			value = article.Status
+		case "keywords":
+			value = article.Keywords
+		case "heading_data":
+			headingData, err := json.MarshalIndent(article.HeadingData, "", " ")
+			if err != nil {
+				fmt.Println("JSON Marshal Error:", err)
+				return 0, err
+			}
+			value = string(headingData)
+		case "ParsedPrompt":
+			value = article.ParsedPrompt
+		case "TotalWords":
+			value = article.TotalWords
+		case "Cost":
+			value = article.Cost
+		case "HTMLContent":
+			value = article.HTMLContent
+		case "IsCompleted":
+			value = article.IsCompleted
+		default:
+			continue
+		}
+		setClauses = append(setClauses, fmt.Sprintf("%s = ?", field))
+		args = append(args, value)
+	}
+	args = append(args, articleID)
+
+	// Join all set clauses with commas
+	setClause := strings.Join(setClauses, ", ")
+	fmt.Printf("setClause: %s\n", setClause)
+	query := fmt.Sprintf("UPDATE articles SET %s WHERE article_id = ?", setClause)
+
+	// Execute the update query
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	// Commit the transaction
+	if err := tx.Commit(); err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	if rowsAffected == 0 {
+		return 0, errors.New("no rows updated")
+	}
+
+	return int(rowsAffected), nil
+}
+
 func NewDBArticleRepo(db *sql.DB) *DBArticleRepo {
-    return &DBArticleRepo{db: db}
+	return &DBArticleRepo{db: db}
 }

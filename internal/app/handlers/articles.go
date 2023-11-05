@@ -38,6 +38,7 @@ func (h *ArticleHandler) GetArticle(c *gin.Context) {
 }
 
 func (h *ArticleHandler) UpdateArticle(c *gin.Context) {
+
 	var requestBody models.ArticleBody
 
 	articleID := c.Param("articleID")
@@ -77,12 +78,20 @@ func (h *ArticleHandler) UpdateArticle(c *gin.Context) {
 		ArticleID:    articleID,
 		HeadingData:  headingData,
 		MainKeywords: requestBody.Data.Text,
+		Keywords:     requestBody.Data.Keywords,
+		MoreInfo:     requestBody.Data.MoreInfo,
 	}
 
-	h.ArticleService.UpdateArticle(c, &article)
+	fieldsToUpdate := []string{"heading_data", "main_keywords", "keywords"}
+	h.ArticleService.UpdateArticleGeneric(c, &article, fieldsToUpdate)
 
-	// Missplaced here but it's ok for now
-	h.TaskQueueService.CreateTasksFromArticle(c, article)
+	if requestBody.Regenerate {
+		h.TaskQueueService.CreateTasksFromArticle(c, article)
+	}
+
+	if requestBody.Continue {
+		h.TaskQueueService.CreateContinueTasksFromArticle(c, article)
+	}
 
 	c.Data(http.StatusOK, "application/json", prettyJSON)
 }

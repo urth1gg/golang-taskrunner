@@ -27,6 +27,10 @@ func main() {
 	config.AllowOrigins = []string{"http://localhost:3000"}            // Allow only localhost:3000 to access the API
 	config.AllowHeaders = append(config.AllowHeaders, "Body")          // Allow the Body header
 	config.AllowHeaders = append(config.AllowHeaders, "Authorization") // Allow the Authorization header
+	config.AllowHeaders = append(config.AllowHeaders, "Access-Control-Allow-Origin")
+	config.AllowHeaders = append(config.AllowHeaders, "Accept")
+	config.AllowHeaders = append(config.AllowHeaders, "Cache-Control")
+	config.AllowHeaders = append(config.AllowHeaders, "Transfer-Encoding")
 	config.AllowCredentials = true
 
 	r.Use(cors.New(config))
@@ -59,7 +63,7 @@ func main() {
 	openAiService := services.NewOpenAIService("")
 	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService)
 	taskExecutor.RunScheduledTaskLoader(900 * time.Millisecond) // Run every 5 minutes
-	taskExecutor.StartWorkers(1)                                // Start 10 workers
+	taskExecutor.StartWorkers(10)                               // Start 10 workers
 
 	eventsService := services.NewEventsService(taskQueueService)
 	eventsHandler := handlers.NewEventsHandler(eventsService, authService, taskQueueService)
@@ -67,7 +71,7 @@ func main() {
 	r.GET("/articles", articleHandler.HelloWorld)
 	r.GET("/articles/:articleID", articleHandler.GetArticle)
 	r.PATCH("/articles/:articleID", articleHandler.UpdateArticle)
-	// r.POST("/articles/:articleID/regenerate", articleHandler.RegenerateHandler)
+	//r.POST("/articles/:articleID/regenerate", articleHandler.RegenerateHandler)
 	r.GET("/events/:userID", eventsHandler.SendData)
 
 	r.Run(":8080")

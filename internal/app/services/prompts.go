@@ -30,17 +30,30 @@ func (s *PromptService) GetPrompt(ctx context.Context, promptID string) (models.
 	return *prompt, nil
 }
 
-func (s *PromptService) GenerateFormattedPromptH1Intro(prompt *models.Prompt, article *models.Article) string {
+func (s *PromptService) GenerateFormattedPromptWithAllVariablesH1(prompt *models.Prompt, article *models.Article) string {
 	if !prompt.TextArea.Valid {
 		// Handle the case where the TextArea is null.
 		// You can return an empty string, an error, or some default value.
 		return ""
 	}
 
-	articleHeading := article.MainKeywords
+	mainHeading := article.MainKeywords
 	headersData := s.GenerateAllHeadersText(article)
-	formattedText := strings.Replace(prompt.TextArea.String, "{h1_title}", articleHeading, -1)
+	keywords := article.Keywords
+	moreInfo := article.MoreInfo
+
+	fmt.Printf("%s\n", keywords)
+	fmt.Printf("%s\n", moreInfo)
+	// TODO: Remove the duplicate string replace calls such as {Keywords} and {keywords} and {more_info} and {additional_info}.
+	// We do not know the exact information that was in the previous version.
+
+	formattedText := strings.Replace(prompt.TextArea.String, "{h1_title}", mainHeading, -1)
 	formattedText = strings.Replace(formattedText, "{all_header}", headersData, -1)
+	formattedText = strings.Replace(formattedText, "{keywords}", keywords, -1)
+	formattedText = strings.Replace(formattedText, "{Keywords}", keywords, -1)
+	formattedText = strings.Replace(formattedText, "{more_info}", moreInfo, -1)
+	formattedText = strings.Replace(formattedText, "{additional_info}", moreInfo, -1)
+
 	formattedText = strings.TrimSpace(formattedText)
 
 	return formattedText
@@ -137,8 +150,14 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariables(prompt *models.P
 	headersData := s.GenerateAllHeadersText(article)
 	prevHeader := s.GeneratePrevHeader(node, article)
 	nextHeader := s.GenerateNextHeader(node, article)
-	keywords := node.Keywords
 	parentHeader := s.GenerateParentHeader(node, article)
+	keywords := node.Keywords
+	moreInfo := node.MoreInfo
+
+	fmt.Printf("%s\n", keywords)
+	fmt.Printf("%s\n", moreInfo)
+	// TODO: Remove the duplicate string replace calls such as {Keywords} and {keywords} and {more_info} and {additional_info}.
+	// We do not know the exact information that was in the previous version.
 
 	formattedText := strings.Replace(prompt.TextArea.String, "{h1_title}", mainHeading, -1)
 	formattedText = strings.Replace(formattedText, "{h2_title}", nodeHeading, -1)
@@ -147,7 +166,11 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariables(prompt *models.P
 	formattedText = strings.Replace(formattedText, "{previous_header}", prevHeader, -1)
 	formattedText = strings.Replace(formattedText, "{next_header}", nextHeader, -1)
 	formattedText = strings.Replace(formattedText, "{keywords}", keywords, -1)
+	formattedText = strings.Replace(formattedText, "{Keywords}", keywords, -1)
 	formattedText = strings.Replace(formattedText, "{parent_header}", parentHeader, -1)
+	formattedText = strings.Replace(formattedText, "{more_info}", moreInfo, -1)
+	formattedText = strings.Replace(formattedText, "{additional_info}", moreInfo, -1)
+
 	formattedText = strings.TrimSpace(formattedText)
 
 	return formattedText, nil

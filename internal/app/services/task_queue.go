@@ -112,11 +112,9 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 			return nil, err
 		}
 
-		formattedPrompt := s.PromptService.GenerateFormattedPromptH1Intro(&prompt, &article)
+		formattedPrompt := s.PromptService.GenerateFormattedPromptWithAllVariablesH1(&prompt, &article)
 
 		log.Println("Formatted Prompt")
-		log.Println(article.MainKeywords)
-		log.Println(t.PromptID)
 
 		if err != nil {
 			log.Printf("Failed to generate formatted prompt: %v", err)
@@ -133,44 +131,49 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 		if header.Level == 2 {
 			log.Println("Creating task for H2")
 
-			log.Println(header)
-			if header.IsCompleted {
-				continue
+			if !header.IsCompleted {
+				log.Println("H2 is completed, skipping")
+				prompt, err := s.PromptService.GetPrompt(ctx, header.PromptID)
+
+				if err != nil {
+					log.Printf("Failed to get prompt: %v", err)
+					return nil, err
+				}
+
+				t := models.TaskQueue{
+					ID:              uuid.New().String(),
+					ArticleID:       article.ArticleID,
+					Status:          TaskStatusPending,
+					HeadingID:       header.ID,
+					Response:        sql.NullString{String: "", Valid: false},
+					Cost:            sql.NullFloat64{Float64: 0, Valid: false},
+					FormattedPrompt: sql.NullString{String: "", Valid: false},
+					PromptID:        header.PromptID,
+					GptModel:        "gpt-3.5",
+				}
+
+				formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &header, &article)
+
+				if err != nil {
+					log.Printf("Failed to generate formatted prompt: %v", err)
+					return nil, err
+				}
+
+				t.FormattedPrompt.String = formattedPrompt
+				t.FormattedPrompt.Valid = true
+
+				tasks = append(tasks, t)
 			}
-
-			prompt, err := s.PromptService.GetPrompt(ctx, header.PromptID)
-
-			if err != nil {
-				log.Printf("Failed to get prompt: %v", err)
-				return nil, err
-			}
-
-			t := models.TaskQueue{
-				ID:              uuid.New().String(),
-				ArticleID:       article.ArticleID,
-				Status:          TaskStatusPending,
-				HeadingID:       header.ID,
-				Response:        sql.NullString{String: "", Valid: false},
-				Cost:            sql.NullFloat64{Float64: 0, Valid: false},
-				FormattedPrompt: sql.NullString{String: "", Valid: false},
-				PromptID:        header.PromptID,
-				GptModel:        "gpt-3.5",
-			}
-
-			formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &header, &article)
-
-			if err != nil {
-				log.Printf("Failed to generate formatted prompt: %v", err)
-				return nil, err
-			}
-
-			t.FormattedPrompt.String = formattedPrompt
-			t.FormattedPrompt.Valid = true
-
-			tasks = append(tasks, t)
 
 			if len(header.Children) > 0 {
 				for _, subHeader := range header.Children {
+					log.Println("Creating task for H3")
+
+					if subHeader.IsCompleted {
+						log.Println("H3 is completed, skipping")
+						continue
+					}
+
 					prompt, err := s.PromptService.GetPrompt(ctx, subHeader.PromptID)
 
 					if err != nil {
@@ -188,6 +191,139 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 						FormattedPrompt: sql.NullString{String: "", Valid: false},
 						PromptID:        subHeader.PromptID,
 						GptModel:        "gpt-3.5",
+					}
+
+					formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &subHeader, &article)
+
+					if err != nil {
+						log.Printf("Failed to generate formatted prompt: %v", err)
+						return nil, err
+					}
+
+					t.FormattedPrompt.String = formattedPrompt
+					t.FormattedPrompt.Valid = true
+
+					tasks = append(tasks, t)
+				}
+			}
+
+		}
+	}
+
+	for _, task := range tasks {
+		s.CreateTask(ctx, task)
+	}
+
+	return nil, nil
+}
+
+func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, article models.Article) ([]models.TaskQueue, error) {
+
+	tasks := []models.TaskQueue{}
+
+	if !article.HeadingData.Data[0].IsCompleted {
+		log.Println("Creating task for H1")
+		t := models.TaskQueue{
+			ID:                 uuid.New().String(),
+			ArticleID:          article.ArticleID,
+			Status:             TaskStatusPending,
+			HeadingID:          article.HeadingData.Data[0].ID,
+			Response:           sql.NullString{String: "", Valid: false},
+			Cost:               sql.NullFloat64{Float64: 0, Valid: false},
+			FormattedPrompt:    sql.NullString{String: "", Valid: false},
+			PromptID:           article.HeadingData.Data[0].PromptID,
+			GptModel:           "gpt-3.5",
+			ContinueGenerating: true,
+		}
+
+		prompt, err := s.PromptService.GetPrompt(ctx, t.PromptID)
+
+		if err != nil {
+			log.Printf("Failed to get prompt: %v", err)
+			return nil, err
+		}
+
+		formattedPrompt := s.PromptService.GenerateFormattedPromptWithAllVariablesH1(&prompt, &article)
+
+		log.Println("Formatted Prompt")
+
+		if err != nil {
+			log.Printf("Failed to generate formatted prompt: %v", err)
+			return nil, err
+		}
+
+		t.FormattedPrompt.String = formattedPrompt
+		t.FormattedPrompt.Valid = true
+		s.CreateTask(ctx, t)
+	}
+
+	for _, header := range article.HeadingData.Data[0].Children {
+
+		if header.Level == 2 {
+			log.Println("Creating task for H2")
+
+			if !header.IsCompleted {
+				log.Println("H2 is completed, skipping")
+				prompt, err := s.PromptService.GetPrompt(ctx, header.PromptID)
+
+				if err != nil {
+					log.Printf("Failed to get prompt: %v", err)
+					return nil, err
+				}
+
+				t := models.TaskQueue{
+					ID:                 uuid.New().String(),
+					ArticleID:          article.ArticleID,
+					Status:             TaskStatusPending,
+					HeadingID:          header.ID,
+					Response:           sql.NullString{String: "", Valid: false},
+					Cost:               sql.NullFloat64{Float64: 0, Valid: false},
+					FormattedPrompt:    sql.NullString{String: "", Valid: false},
+					PromptID:           header.PromptID,
+					GptModel:           "gpt-3.5",
+					ContinueGenerating: true,
+				}
+
+				formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &header, &article)
+
+				if err != nil {
+					log.Printf("Failed to generate formatted prompt: %v", err)
+					return nil, err
+				}
+
+				t.FormattedPrompt.String = formattedPrompt
+				t.FormattedPrompt.Valid = true
+
+				tasks = append(tasks, t)
+			}
+
+			if len(header.Children) > 0 {
+				for _, subHeader := range header.Children {
+					log.Println("Creating task for H3")
+
+					if subHeader.IsCompleted {
+						log.Println("H3 is completed, skipping")
+						continue
+					}
+
+					prompt, err := s.PromptService.GetPrompt(ctx, subHeader.PromptID)
+
+					if err != nil {
+						log.Printf("Failed to get prompt: %v", err)
+						return nil, err
+					}
+
+					t := models.TaskQueue{
+						ID:                 uuid.New().String(),
+						ArticleID:          article.ArticleID,
+						Status:             TaskStatusPending,
+						HeadingID:          subHeader.ID,
+						Response:           sql.NullString{String: "", Valid: false},
+						Cost:               sql.NullFloat64{Float64: 0, Valid: false},
+						FormattedPrompt:    sql.NullString{String: "", Valid: false},
+						PromptID:           subHeader.PromptID,
+						GptModel:           "gpt-3.5",
+						ContinueGenerating: true,
 					}
 
 					formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &subHeader, &article)
