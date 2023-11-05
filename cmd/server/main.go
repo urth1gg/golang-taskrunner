@@ -24,9 +24,9 @@ func main() {
 	dbName := "caravagio"
 
 	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{"http://localhost:3000"}            // Allow only localhost:3000 to access the API
-	config.AllowHeaders = append(config.AllowHeaders, "Body")          // Allow the Body header
-	config.AllowHeaders = append(config.AllowHeaders, "Authorization") // Allow the Authorization header
+	config.AllowOrigins = []string{"http://localhost:3000", "http://143.110.157.129:3000"} // Allow only localhost:3000 to access the API
+	config.AllowHeaders = append(config.AllowHeaders, "Body")                              // Allow the Body header
+	config.AllowHeaders = append(config.AllowHeaders, "Authorization")                     // Allow the Authorization header
 	config.AllowHeaders = append(config.AllowHeaders, "Access-Control-Allow-Origin")
 	config.AllowHeaders = append(config.AllowHeaders, "Accept")
 	config.AllowHeaders = append(config.AllowHeaders, "Cache-Control")
@@ -40,6 +40,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
+
+	responseChannel := make(chan services.GptResponse)
 
 	authRepo := db.NewDBAuthRepo(conn.DB)
 	authService := services.NewAuthService(authRepo)
@@ -60,7 +62,7 @@ func main() {
 	settingsRepo := db.NewDBSettingsRepo(conn.DB)
 	settingsService := services.NewSettingsService(settingsRepo)
 
-	openAiService := services.NewOpenAIService("")
+	openAiService := services.NewOpenAIService("", &responseChannel)
 	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService)
 	taskExecutor.RunScheduledTaskLoader(900 * time.Millisecond) // Run every 5 minutes
 	taskExecutor.StartWorkers(10)                               // Start 10 workers
@@ -68,11 +70,13 @@ func main() {
 	eventsService := services.NewEventsService(taskQueueService)
 	eventsHandler := handlers.NewEventsHandler(eventsService, authService, taskQueueService)
 
+	StreamGptHandler := handlers.NewStreamGptHandler(eventsService, authService, taskQueueService, &responseChannel)
 	r.GET("/articles", articleHandler.HelloWorld)
 	r.GET("/articles/:articleID", articleHandler.GetArticle)
 	r.PATCH("/articles/:articleID", articleHandler.UpdateArticle)
 	//r.POST("/articles/:articleID/regenerate", articleHandler.RegenerateHandler)
 	r.GET("/events/:userID", eventsHandler.SendData)
+	r.GET("/streamgpt/:userID", StreamGptHandler.SendData)
 
 	r.Run(":8080")
 }

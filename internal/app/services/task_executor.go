@@ -116,66 +116,72 @@ func updateResponse(headingData *[]models.Node, headingID string, response strin
 func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	ctx := context.Background()
 
-	if taskData.GptModel == "gpt-3.5" {
-		articleId := taskData.ArticleID
+	articleId := taskData.ArticleID
 
-		article, err := te.ArticleService.GetArticle(ctx, articleId)
+	article, err := te.ArticleService.GetArticle(ctx, articleId)
 
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
-		articleUserId := article.UserID
+	articleUserId := article.UserID
 
-		settings, err := te.SettingsService.GetSetting(ctx, articleUserId)
+	settings, err := te.SettingsService.GetSetting(ctx, articleUserId)
 
-		te.OpenAIService.SetOpenAIKey(settings.APIKey.String)
+	te.OpenAIService.SetOpenAIKey(settings.APIKey.String)
 
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
-		resp, err := te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String)
+	resp := ""
+	if taskData.GptModel == "gpt-4" {
+		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID)
+	} else if taskData.GptModel == "gpt-3.5" {
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String)
+	} else if taskData.GptModel == "ada-001" {
+		resp, err = te.OpenAIService.UseAda(ctx, taskData.FormattedPrompt.String)
+	}
 
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+	fmt.Println(taskData.GptModel)
+	fmt.Println("model")
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
-		if taskData.ContinueGenerating {
-			resp = taskData.Response.String + resp
-			taskData.Response.String = resp
-		} else {
-			taskData.Response.String = resp
-		}
+	if taskData.ContinueGenerating {
+		resp = taskData.Response.String + resp
+		taskData.Response.String = resp
+	} else {
+		taskData.Response.String = resp
+	}
 
-		taskData.Response.Valid = true
-		taskData.Status = TaskStatusCompleted
+	taskData.Response.Valid = true
+	taskData.Status = TaskStatusCompleted
 
-		_, err = te.TaskQueueService.UpdateTask(ctx, taskData)
+	_, err = te.TaskQueueService.UpdateTask(ctx, taskData)
 
-		if err != nil {
-			log.Println(err)
-			return err
-		}
+	if err != nil {
+		log.Println(err)
+		return err
+	}
 
-		log.Println("Going once")
-		log.Println(taskData.ID)
+	log.Println("Going once")
+	log.Println(taskData.ID)
 
-		found := updateResponse(&article.HeadingData.Data, taskData.HeadingID, taskData.Response.String)
+	found := updateResponse(&article.HeadingData.Data, taskData.HeadingID, taskData.Response.String)
 
-		if !found {
-			return fmt.Errorf("could not find heading ID %s in article %s", taskData.HeadingID, articleId)
-		}
+	if !found {
+		return fmt.Errorf("could not find heading ID %s in article %s", taskData.HeadingID, articleId)
+	}
 
-		_, err = te.ArticleService.UpdateArticle(ctx, &article)
+	_, err = te.ArticleService.UpdateArticle(ctx, &article)
 
-		if err != nil {
-			log.Println(err)
-		}
-
+	if err != nil {
+		log.Println(err)
 	}
 
 	return nil

@@ -102,10 +102,12 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 			Cost:            sql.NullFloat64{Float64: 0, Valid: false},
 			FormattedPrompt: sql.NullString{String: "", Valid: false},
 			PromptID:        article.HeadingData.Data[0].PromptID,
-			GptModel:        "gpt-3.5",
+			GptModel:        "",
 		}
 
 		prompt, err := s.PromptService.GetPrompt(ctx, t.PromptID)
+
+		t.GptModel = prompt.GPTModel.String
 
 		if err != nil {
 			log.Printf("Failed to get prompt: %v", err)
@@ -149,8 +151,9 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 					Cost:            sql.NullFloat64{Float64: 0, Valid: false},
 					FormattedPrompt: sql.NullString{String: "", Valid: false},
 					PromptID:        header.PromptID,
-					GptModel:        "gpt-3.5",
+					GptModel:        "",
 				}
+				t.GptModel = prompt.GPTModel.String
 
 				formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &header, &article)
 
@@ -190,8 +193,10 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 						Cost:            sql.NullFloat64{Float64: 0, Valid: false},
 						FormattedPrompt: sql.NullString{String: "", Valid: false},
 						PromptID:        subHeader.PromptID,
-						GptModel:        "gpt-3.5",
+						GptModel:        "",
 					}
+
+					t.GptModel = prompt.GPTModel.String
 
 					formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &subHeader, &article)
 
@@ -232,7 +237,7 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 			Cost:               sql.NullFloat64{Float64: 0, Valid: false},
 			FormattedPrompt:    sql.NullString{String: "", Valid: false},
 			PromptID:           article.HeadingData.Data[0].PromptID,
-			GptModel:           "gpt-3.5",
+			GptModel:           "",
 			ContinueGenerating: true,
 		}
 
@@ -242,6 +247,8 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 			log.Printf("Failed to get prompt: %v", err)
 			return nil, err
 		}
+
+		t.GptModel = prompt.GPTModel.String
 
 		formattedPrompt := s.PromptService.GenerateFormattedPromptWithAllVariablesH1(&prompt, &article)
 
@@ -280,9 +287,11 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 					Cost:               sql.NullFloat64{Float64: 0, Valid: false},
 					FormattedPrompt:    sql.NullString{String: "", Valid: false},
 					PromptID:           header.PromptID,
-					GptModel:           "gpt-3.5",
+					GptModel:           "",
 					ContinueGenerating: true,
 				}
+
+				t.GptModel = prompt.GPTModel.String
 
 				formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &header, &article)
 
@@ -322,9 +331,11 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 						Cost:               sql.NullFloat64{Float64: 0, Valid: false},
 						FormattedPrompt:    sql.NullString{String: "", Valid: false},
 						PromptID:           subHeader.PromptID,
-						GptModel:           "gpt-3.5",
+						GptModel:           "",
 						ContinueGenerating: true,
 					}
+
+					t.GptModel = prompt.GPTModel.String
 
 					formattedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, &subHeader, &article)
 
