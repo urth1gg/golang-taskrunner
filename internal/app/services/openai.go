@@ -69,7 +69,7 @@ func (s *OpenAIService) UseAda(ctx context.Context, inputText string) (string, e
 
 	return response.Choices[0].Text, nil
 }
-func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID string) (string, error) {
+func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID string, maxTokens int) (string, error) {
 	log.Println("Using GPT4")
 
 	if strings.TrimSpace(inputText) == "" {
@@ -83,7 +83,7 @@ func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID
 	request := openai.ChatCompletionRequest{
 		Messages:  []openai.ChatCompletionMessage{message},
 		Model:     "gpt-4-0613",
-		MaxTokens: 33,
+		MaxTokens: maxTokens,
 	}
 
 	response, err := s.client.CreateChatCompletionStream(ctx, request)

@@ -17,9 +17,10 @@ type TaskQueue struct {
 	PromptID           string          `db:"prompt_id"`
 	GptModel           string          `db:"gpt_model"`
 	ContinueGenerating bool            `db:"continue_generating"`
+	MaxTokens          int             `db:"max_tokens"`
 }
 
-func NewTaskQueue(headingID, status, response, formattedPrompt, articleID, promptID string, cost float64, gptModel string, continueGenerating bool) TaskQueue {
+func NewTaskQueue(headingID, status, response, formattedPrompt, articleID, promptID string, cost float64, gptModel string, continueGenerating bool, maxTokens int) TaskQueue {
 	return TaskQueue{
 		ID:                 uuid.New().String(),
 		HeadingID:          headingID,
@@ -31,5 +32,6 @@ func NewTaskQueue(headingID, status, response, formattedPrompt, articleID, promp
 		PromptID:           promptID,
 		GptModel:           gptModel,
 		ContinueGenerating: continueGenerating,
+		MaxTokens:          maxTokens,
 	}
 }

@@ -16,4 +16,5 @@ type Article struct {
 	HTMLContent  *string     `sql:"html_content" json:"html_content"`
 	IsCompleted  bool        `json:"is_completed"`
 	MoreInfo     string      `json:"more_info"`
+	Length       int         `json:"length"`
 }

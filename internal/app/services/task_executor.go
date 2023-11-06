@@ -137,8 +137,25 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	}
 
 	resp := ""
+
+	if taskData.ContinueGenerating {
+		prependToTheStartOfThePrompt := "Continue the text below without duplicating the content:\n\n"
+
+		task, err := te.TaskQueueService.GetTaskFromHistoryByHeadingId(ctx, taskData.HeadingID)
+
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+		taskData.FormattedPrompt.String = prependToTheStartOfThePrompt + task.Response.String
+	}
+
+	fmt.Println("Prompt")
+	fmt.Printf("%s", taskData.FormattedPrompt.String)
+
 	if taskData.GptModel == "gpt-4" {
-		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID)
+		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens)
 	} else if taskData.GptModel == "gpt-3.5" {
 		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String)
 	} else if taskData.GptModel == "ada-001" {
@@ -155,12 +172,27 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	if taskData.ContinueGenerating {
 		resp = taskData.Response.String + resp
 		taskData.Response.String = resp
+
 	} else {
 		taskData.Response.String = resp
 	}
 
 	taskData.Response.Valid = true
 	taskData.Status = TaskStatusCompleted
+
+	if taskData.GptModel == "gpt-4" {
+		taskData.Status = TaskStatusCompletedAndSent
+
+		tasks := []models.TaskQueue{taskData}
+
+		err := te.TaskQueueService.AddTasksToHistory(ctx, tasks)
+
+		if err != nil {
+			log.Println(err)
+			return err
+		}
+
+	}
 
 	_, err = te.TaskQueueService.UpdateTask(ctx, taskData)
 

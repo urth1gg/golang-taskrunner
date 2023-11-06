@@ -71,7 +71,6 @@ func main() {
 	eventsHandler := handlers.NewEventsHandler(eventsService, authService, taskQueueService)
 
 	StreamGptHandler := handlers.NewStreamGptHandler(eventsService, authService, taskQueueService, &responseChannel)
-	r.GET("/articles", articleHandler.HelloWorld)
 	r.GET("/articles/:articleID", articleHandler.GetArticle)
 	r.PATCH("/articles/:articleID", articleHandler.UpdateArticle)
 	//r.POST("/articles/:articleID/regenerate", articleHandler.RegenerateHandler)

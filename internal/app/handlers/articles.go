@@ -14,17 +14,6 @@ type ArticleHandler struct {
 	TaskQueueService *services.TaskQueueService
 }
 
-// HelloWorld responds with a "Hello, Articles!" message
-func (h *ArticleHandler) HelloWorld(c *gin.Context) {
-	value, errorfield := h.ArticleService.GetArticle(c, "74e13609-ee4e-4e74-812f-b1880cc732aa")
-
-	c.JSON(200, gin.H{
-		"message":    "Hello, Articles!",
-		"value":      value,
-		"errorfield": errorfield,
-	})
-}
-
 func (h *ArticleHandler) GetArticle(c *gin.Context) {
 	articleID := c.Param("articleID")
 

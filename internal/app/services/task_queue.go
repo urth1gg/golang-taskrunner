@@ -103,6 +103,7 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 			FormattedPrompt: sql.NullString{String: "", Valid: false},
 			PromptID:        article.HeadingData.Data[0].PromptID,
 			GptModel:        "",
+			MaxTokens:       article.HeadingData.Data[0].Length,
 		}
 
 		prompt, err := s.PromptService.GetPrompt(ctx, t.PromptID)
@@ -152,6 +153,7 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 					FormattedPrompt: sql.NullString{String: "", Valid: false},
 					PromptID:        header.PromptID,
 					GptModel:        "",
+					MaxTokens:       header.Length,
 				}
 				t.GptModel = prompt.GPTModel.String
 
@@ -194,6 +196,7 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 						FormattedPrompt: sql.NullString{String: "", Valid: false},
 						PromptID:        subHeader.PromptID,
 						GptModel:        "",
+						MaxTokens:       subHeader.Length,
 					}
 
 					t.GptModel = prompt.GPTModel.String
@@ -239,6 +242,7 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 			PromptID:           article.HeadingData.Data[0].PromptID,
 			GptModel:           "",
 			ContinueGenerating: true,
+			MaxTokens:          article.HeadingData.Data[0].Length,
 		}
 
 		prompt, err := s.PromptService.GetPrompt(ctx, t.PromptID)
@@ -289,6 +293,7 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 					PromptID:           header.PromptID,
 					GptModel:           "",
 					ContinueGenerating: true,
+					MaxTokens:          header.Length,
 				}
 
 				t.GptModel = prompt.GPTModel.String
@@ -333,6 +338,7 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 						PromptID:           subHeader.PromptID,
 						GptModel:           "",
 						ContinueGenerating: true,
+						MaxTokens:          subHeader.Length,
 					}
 
 					t.GptModel = prompt.GPTModel.String
@@ -388,4 +394,15 @@ func (s *TaskQueueService) AddTasksToHistory(ctx context.Context, tasks []models
 	}
 
 	return nil
+}
+
+func (s *TaskQueueService) GetTaskFromHistoryByHeadingId(ctx context.Context, headingID string) (*models.TaskQueue, error) {
+	task, err := s.db.GetTaskFromHistoryByHeadingId(ctx, headingID)
+
+	if err != nil {
+		log.Printf("Failed to get task from history: %v", err)
+		return nil, err
+	}
+
+	return task, nil
 }
