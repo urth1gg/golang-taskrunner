@@ -63,8 +63,6 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 			fmt.Println("Client disconnected")
 			return
 		case response := <-*h.Response:
-			fmt.Println("Received response")
-
 			json, err := json.Marshal(response)
 
 			if err != nil {

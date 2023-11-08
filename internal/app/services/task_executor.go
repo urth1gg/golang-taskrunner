@@ -5,8 +5,17 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"runtime"
 	"time"
 )
+
+func HandleError(err error) {
+	_, file, line, ok := runtime.Caller(1) // 1 level up in the stack
+
+	if ok {
+		fmt.Printf("error: %v, file: %v, line: %d\n", err, file, line)
+	}
+}
 
 type TaskExecutor struct {
 	TaskQueue        chan Task
@@ -138,8 +147,10 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 
 	resp := ""
 
+	fmt.Println("Continue generating")
+	fmt.Println(taskData.ContinueGenerating)
 	if taskData.ContinueGenerating {
-		prependToTheStartOfThePrompt := "Continue the text below without duplicating the content:\n\n"
+		prependToTheStartOfThePrompt := "Continue the text below without duplicating the content:\n\n. You will find the instructions on how the text was written so far as well as the original text right below it. \n\n"
 
 		task, err := te.TaskQueueService.GetTaskFromHistoryByHeadingId(ctx, taskData.HeadingID)
 
@@ -148,25 +159,35 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 			return err
 		}
 
-		taskData.FormattedPrompt.String = prependToTheStartOfThePrompt + task.Response.String
+		prevResponse := task.Response.String
+		prevPrompt := taskData.FormattedPrompt.String
+		taskData.FormattedPrompt.String = prependToTheStartOfThePrompt + prevPrompt + "\n\n" + "Prev response:" + prevResponse
+
+		fmt.Println("Prompt2")
+		fmt.Printf("%s", taskData.FormattedPrompt.String)
 	}
 
 	fmt.Println("Prompt")
 	fmt.Printf("%s", taskData.FormattedPrompt.String)
 
-	if taskData.GptModel == "gpt-4" {
-		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens)
-	} else if taskData.GptModel == "gpt-3.5" {
-		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String)
-	} else if taskData.GptModel == "ada-001" {
-		resp, err = te.OpenAIService.UseAda(ctx, taskData.FormattedPrompt.String)
+	if taskData.GptModel == "gpt-4-1106-preview" {
+		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-4-1106-preview")
+	} else if taskData.GptModel == "gpt-4" {
+		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-4")
+	} else if taskData.GptModel == "gpt-3.5-turbo" {
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo")
+	} else if taskData.GptModel == "gpt-3.5-turbo-16k" {
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo")
+	} else if taskData.GptModel == "gpt-3.5-turbo-1106" {
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo-1106")
 	}
 
 	fmt.Println(taskData.GptModel)
 	fmt.Println("model")
+
 	if err != nil {
-		log.Println(err)
-		return err
+		HandleError(err)
+		//return err
 	}
 
 	if taskData.ContinueGenerating {
@@ -177,28 +198,38 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 		taskData.Response.String = resp
 	}
 
+	if taskData.Status == MetaTaskStatusPending {
+		article.MetaDescription = taskData.Response.String
+		fields := []string{"meta_description"}
+
+		_, err := te.ArticleService.UpdateArticleGeneric(ctx, &article, fields)
+
+		if err != nil {
+			HandleError(err)
+		}
+	}
+
 	taskData.Response.Valid = true
 	taskData.Status = TaskStatusCompleted
 
-	if taskData.GptModel == "gpt-4" {
-		taskData.Status = TaskStatusCompletedAndSent
+	taskData.Status = TaskStatusCompletedAndSent
 
-		tasks := []models.TaskQueue{taskData}
+	tasks := []models.TaskQueue{taskData}
 
-		err := te.TaskQueueService.AddTasksToHistory(ctx, tasks)
-
-		if err != nil {
-			log.Println(err)
-			return err
-		}
-
-	}
-
-	_, err = te.TaskQueueService.UpdateTask(ctx, taskData)
+	err = te.TaskQueueService.AddTasksToHistory(ctx, tasks)
 
 	if err != nil {
 		log.Println(err)
-		return err
+		HandleError(err)
+		//return err
+	}
+
+	// TODO: this doesn't happen due to AddTasksToHistory removing it in case of GPT-4
+	_, err = te.TaskQueueService.UpdateTask(ctx, taskData)
+
+	if err != nil {
+		HandleError(err)
+		//	return err
 	}
 
 	log.Println("Going once")
@@ -207,7 +238,9 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	found := updateResponse(&article.HeadingData.Data, taskData.HeadingID, taskData.Response.String)
 
 	if !found {
-		return fmt.Errorf("could not find heading ID %s in article %s", taskData.HeadingID, articleId)
+		err := fmt.Errorf("could not find heading ID %s in article %s", taskData.HeadingID, articleId)
+
+		log.Println(err)
 	}
 
 	_, err = te.ArticleService.UpdateArticle(ctx, &article)

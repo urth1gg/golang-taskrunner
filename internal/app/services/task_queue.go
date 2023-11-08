@@ -14,6 +14,7 @@ type TaskQueueService struct {
 }
 
 const (
+	MetaTaskStatusPending      = "meta_pending"
 	TaskStatusPending          = "pending"
 	TaskStatusCompleted        = "completed"
 	TaskStatusFailed           = "failed"
@@ -405,4 +406,43 @@ func (s *TaskQueueService) GetTaskFromHistoryByHeadingId(ctx context.Context, he
 	}
 
 	return task, nil
+}
+
+func (s *TaskQueueService) CreateMetaDescriptionTask(ctx context.Context, article *models.Article, metaDescription *models.Node) (models.TaskQueue, error) {
+	log.Println("Creating task for meta description")
+
+	prompt, err := s.PromptService.GetPrompt(ctx, metaDescription.PromptID)
+
+	if err != nil {
+		log.Printf("Failed to get prompt: %v", err)
+		return models.TaskQueue{}, err
+	}
+
+	t := models.TaskQueue{
+		ID:              uuid.New().String(),
+		ArticleID:       article.ArticleID,
+		Status:          MetaTaskStatusPending,
+		HeadingID:       metaDescription.ID,
+		Response:        sql.NullString{String: "", Valid: false},
+		Cost:            sql.NullFloat64{Float64: 0, Valid: false},
+		FormattedPrompt: sql.NullString{String: "", Valid: false},
+		PromptID:        metaDescription.PromptID,
+		GptModel:        "",
+		MaxTokens:       metaDescription.Length,
+	}
+
+	t.GptModel = prompt.GPTModel.String
+	generatedPrompt, err := s.PromptService.GenerateFormattedPromptWithAllVariables(&prompt, metaDescription, article)
+
+	if err != nil {
+		log.Printf("Failed to generate formatted prompt: %v", err)
+		return models.TaskQueue{}, err
+	}
+
+	t.FormattedPrompt.String = generatedPrompt
+	t.FormattedPrompt.Valid = true
+
+	s.CreateTask(ctx, t)
+
+	return t, nil
 }

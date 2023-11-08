@@ -72,7 +72,7 @@ func (r *DBTaskQueueRepo) CreateTask(ctx context.Context, t models.TaskQueue) (*
 
 func (r *DBTaskQueueRepo) GetAllPendingTasks(ctx context.Context) ([]models.TaskQueue, error) {
 	var tasks []models.TaskQueue
-	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model, continue_generating, max_tokens FROM tasks_queue WHERE status = 'pending'"
+	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model, continue_generating, max_tokens FROM tasks_queue WHERE status = 'pending' OR status = 'meta_pending'"
 	rows, err := r.db.QueryContext(ctx, query)
 	if err != nil {
 		fmt.Println(err)

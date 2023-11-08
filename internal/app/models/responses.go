@@ -17,6 +17,7 @@ type ArticleBody struct {
 		Title            string `json:"title"`
 		Children         []Node `json:"children"`
 	} `json:"data"`
-	Regenerate bool `json:"regenerate"`
-	Continue   bool `json:"continue"`
+	Regenerate      bool `json:"regenerate"`
+	Continue        bool `json:"continue"`
+	MetaDescription Node `json:"metaDescription"`
 }

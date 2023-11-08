@@ -82,6 +82,15 @@ func (h *ArticleHandler) UpdateArticle(c *gin.Context) {
 		h.TaskQueueService.CreateContinueTasksFromArticle(c, article)
 	}
 
+	if requestBody.MetaDescription.ID != "" {
+		_, err := h.TaskQueueService.CreateMetaDescriptionTask(c, &article, &requestBody.MetaDescription)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+	}
+
 	c.Data(http.StatusOK, "application/json", prettyJSON)
 }
 
@@ -103,3 +112,6 @@ func (h *ArticleHandler) RegenerateHandler(c *gin.Context) {
 func NewArticleHandler(s *services.ArticleService, t *services.TaskQueueService) *ArticleHandler {
 	return &ArticleHandler{ArticleService: s, TaskQueueService: t}
 }
+
+//TODO: Delete this
+//ALTER TABLE articles ADD COLUMN meta_description TEXT DEFAULT '';

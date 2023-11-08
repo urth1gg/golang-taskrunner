@@ -125,6 +125,8 @@ func (s *DBArticleRepo) UpdateArticleGeneric(ctx context.Context, article *model
 			value = article.HTMLContent
 		case "IsCompleted":
 			value = article.IsCompleted
+		case "meta_description":
+			value = article.MetaDescription
 		default:
 			continue
 		}
