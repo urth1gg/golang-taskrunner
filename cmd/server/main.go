@@ -64,8 +64,8 @@ func main() {
 
 	openAiService := services.NewOpenAIService("", &responseChannel)
 	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService)
-	taskExecutor.RunScheduledTaskLoader(900 * time.Millisecond) // Run every 5 minutes
-	taskExecutor.StartWorkers(10)                               // Start 10 workers
+	taskExecutor.RunScheduledTaskLoader(1500 * time.Millisecond) // Run every 5 minutes
+	taskExecutor.StartWorkers(10)                                // Start 10 workers
 
 	eventsService := services.NewEventsService(taskQueueService)
 	eventsHandler := handlers.NewEventsHandler(eventsService, authService, taskQueueService)

@@ -4,10 +4,12 @@ import (
 	"caravagio-api-golang/internal/app/services"
 	"encoding/json"
 	"fmt"
-	"net/http"
-
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"time"
 )
+
+var connectedUsers = make(map[string]interface{})
 
 type StreamGptHandler struct {
 	EventsService    *services.EventsService
@@ -44,6 +46,11 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 		return
 	}
 
+	if connectedUsers[userID] == true {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User already connected"})
+		return
+	}
+
 	w := c.Writer
 	flusher, _ := w.(http.Flusher)
 
@@ -56,11 +63,15 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 
 	clientCtx := c.Request.Context()
 
+	connectedUsers[userID] = true
+
 	fmt.Println("Client connected to stream")
 	for {
 		select {
 		case <-clientCtx.Done():
 			fmt.Println("Client disconnected")
+			delete(connectedUsers, userID)
+			flusher.Flush()
 			return
 		case response := <-*h.Response:
 			json, err := json.Marshal(response)
@@ -69,6 +80,7 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 				fmt.Println("Failed to marshal tasks:", err)
 				fmt.Fprintf(w, "event: %s\n", "message")
 				fmt.Fprintf(w, "data: %s\n\n", "{\"error\": \"Failed to marshal tasks\"}")
+				flusher.Flush()
 				continue
 			}
 
@@ -76,7 +88,14 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 			fmt.Fprintf(w, "data: %s\n\n", json)
 
 			flusher.Flush()
+		default:
+			fmt.Fprintf(w, "event: %s\n", "message")
+			fmt.Fprintf(w, "data: %s\n\n", "{}")
+			flusher.Flush()
+
+			time.Sleep(2500 * time.Millisecond)
 		}
+
 	}
 
 }

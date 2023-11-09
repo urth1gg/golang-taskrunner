@@ -130,8 +130,7 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	article, err := te.ArticleService.GetArticle(ctx, articleId)
 
 	if err != nil {
-		log.Println(err)
-		return err
+		HandleError(err)
 	}
 
 	articleUserId := article.UserID
@@ -141,34 +140,27 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	te.OpenAIService.SetOpenAIKey(settings.APIKey.String)
 
 	if err != nil {
-		log.Println(err)
-		return err
+		HandleError(err)
 	}
 
 	resp := ""
 
-	fmt.Println("Continue generating")
-	fmt.Println(taskData.ContinueGenerating)
 	if taskData.ContinueGenerating {
-		prependToTheStartOfThePrompt := "Continue the text below without duplicating the content:\n\n. You will find the instructions on how the text was written so far as well as the original text right below it. \n\n"
+		prependToTheStartOfThePrompt := "Continue in the same language the text below without duplicating the content:\n\n"
 
 		task, err := te.TaskQueueService.GetTaskFromHistoryByHeadingId(ctx, taskData.HeadingID)
 
 		if err != nil {
-			log.Println(err)
-			return err
+			HandleError(err)
 		}
 
 		prevResponse := task.Response.String
-		prevPrompt := taskData.FormattedPrompt.String
-		taskData.FormattedPrompt.String = prependToTheStartOfThePrompt + prevPrompt + "\n\n" + "Prev response:" + prevResponse
+		//prevPrompt := taskData.FormattedPrompt.String
+		taskData.FormattedPrompt.String = prependToTheStartOfThePrompt + prevResponse
 
 		fmt.Println("Prompt2")
 		fmt.Printf("%s", taskData.FormattedPrompt.String)
 	}
-
-	fmt.Println("Prompt")
-	fmt.Printf("%s", taskData.FormattedPrompt.String)
 
 	if taskData.GptModel == "gpt-4-1106-preview" {
 		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-4-1106-preview")
@@ -210,7 +202,6 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	}
 
 	taskData.Response.Valid = true
-	taskData.Status = TaskStatusCompleted
 
 	taskData.Status = TaskStatusCompletedAndSent
 
@@ -225,7 +216,7 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	}
 
 	// TODO: this doesn't happen due to AddTasksToHistory removing it in case of GPT-4
-	_, err = te.TaskQueueService.UpdateTask(ctx, taskData)
+	// _, err = te.TaskQueueService.UpdateTask(ctx, taskData)
 
 	if err != nil {
 		HandleError(err)
