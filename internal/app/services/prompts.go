@@ -95,35 +95,83 @@ func (s *PromptService) GenerateFormattedPromptH2Intro(prompt *models.Prompt, no
 	return formattedText, nil
 }
 
-func (s *PromptService) GeneratePrevHeader(node *models.Node, article *models.Article) string {
-	HeadingData := article.HeadingData
-	prevHeading := ""
+// TODO: Refactor this
+func (s *PromptService) findHeading(headingData []models.Node, node *models.Node, findPrev bool) (string, bool) {
+	var lastHeadingAtLevel string
+	found := false
 
-	for _, heading := range HeadingData.Data[0].Children {
-		if heading.Text == node.Text {
-			break
+	for _, heading := range headingData {
+		// If we've found our node, return the last heading at the same level
+		if found && heading.Level == node.Level && findPrev {
+			return lastHeadingAtLevel, true
 		}
-		prevHeading = heading.Text
+
+		// If this is the node, mark it as found
+		if heading.Text == node.Text && heading.Level == node.Level {
+			found = true
+			// If we're looking for the next heading, continue the search
+			if !findPrev {
+				continue
+			}
+		}
+
+		// If we're looking for the previous heading and we've found the node,
+		// the last heading at the level is our answer
+		if found && findPrev {
+			return lastHeadingAtLevel, true
+		}
+
+		// Keep track of the last heading at this level
+		if heading.Level == node.Level {
+			lastHeadingAtLevel = heading.Text
+		}
+
+		// Recursively search in children
+		if len(heading.Children) > 0 {
+			if result, foundInChild := s.findHeading(heading.Children, node, findPrev); foundInChild {
+				return result, true
+			}
+		}
 	}
 
+	// If we're looking for the next heading and we've found the node,
+	// but there's no next heading at the same level, return an empty string
+	if found && !findPrev {
+		return "", true
+	}
+
+	return "", false
+}
+
+func (s *PromptService) findNextHeader(headingData []models.Node, targetNode *models.Node, foundTarget *bool) (string, bool) {
+	for _, heading := range headingData {
+		if *foundTarget {
+			if heading.Level == targetNode.Level {
+				return heading.Text, true
+			}
+		} else if heading.Text == targetNode.Text && heading.Level == targetNode.Level {
+			*foundTarget = true
+		}
+
+		if len(heading.Children) > 0 {
+			if nextHeader, found := s.findNextHeader(heading.Children, targetNode, foundTarget); found {
+				return nextHeader, true
+			}
+		}
+	}
+
+	return "", false
+}
+
+func (s *PromptService) GeneratePrevHeader(node *models.Node, article *models.Article) string {
+	prevHeading, _ := s.findHeading(article.HeadingData.Data[0].Children, node, true)
 	return prevHeading
 }
 
 func (s *PromptService) GenerateNextHeader(node *models.Node, article *models.Article) string {
-	HeadingData := article.HeadingData
-	foundCurrentNode := false
-
-	for _, heading := range HeadingData.Data[0].Children {
-		if foundCurrentNode {
-			return heading.Text
-		}
-
-		if heading.Text == node.Text {
-			foundCurrentNode = true
-		}
-	}
-
-	return ""
+	foundTarget := false
+	nextHeader, _ := s.findNextHeader(article.HeadingData.Data[0].Children, node, &foundTarget)
+	return nextHeader
 }
 
 func (s *PromptService) GenerateParentHeader(node *models.Node, article *models.Article) string {

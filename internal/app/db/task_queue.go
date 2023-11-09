@@ -223,3 +223,13 @@ func (r *DBTaskQueueRepo) DeleteTask(ctx context.Context, task models.TaskQueue)
 	}
 	return nil
 }
+
+func (r *DBTaskQueueRepo) DeleteTasks(ctx context.Context) error {
+	query := "DELETE FROM tasks_queue"
+	_, err := r.db.ExecContext(ctx, query)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	return nil
+}

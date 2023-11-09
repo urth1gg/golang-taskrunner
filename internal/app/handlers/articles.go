@@ -108,6 +108,13 @@ func (h *ArticleHandler) RegenerateHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully regenerated"})
 }
 
+func (h *ArticleHandler) DeleteTasks(c *gin.Context) {
+
+	h.TaskQueueService.DeleteTasks(c)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Successfully deleted tasks"})
+}
+
 // NewArticleHandler creates a new articles ArticleHandler
 func NewArticleHandler(s *services.ArticleService, t *services.TaskQueueService) *ArticleHandler {
 	return &ArticleHandler{ArticleService: s, TaskQueueService: t}

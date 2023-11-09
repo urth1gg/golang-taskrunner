@@ -126,7 +126,6 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	ctx := context.Background()
 
 	articleId := taskData.ArticleID
-
 	article, err := te.ArticleService.GetArticle(ctx, articleId)
 
 	if err != nil {
@@ -134,7 +133,6 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	}
 
 	articleUserId := article.UserID
-
 	settings, err := te.SettingsService.GetSetting(ctx, articleUserId)
 
 	te.OpenAIService.SetOpenAIKey(settings.APIKey.String)

@@ -446,3 +446,11 @@ func (s *TaskQueueService) CreateMetaDescriptionTask(ctx context.Context, articl
 
 	return t, nil
 }
+
+func (s *TaskQueueService) DeleteTasks(ctx context.Context) {
+	err := s.db.DeleteTasks(ctx)
+
+	if err != nil {
+		log.Printf("Failed to delete tasks: %v", err)
+	}
+}

@@ -76,7 +76,7 @@ func main() {
 	//r.POST("/articles/:articleID/regenerate", articleHandler.RegenerateHandler)
 	r.GET("/events/:userID", eventsHandler.SendData)
 	r.GET("/streamgpt/:userID", StreamGptHandler.SendData)
-
+	r.DELETE("/tasks", articleHandler.DeleteTasks)
 	r.Run(":8080")
 }
 
