@@ -161,15 +161,15 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	}
 
 	if taskData.GptModel == "gpt-4-1106-preview" {
-		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-4-1106-preview")
+		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-4-1106-preview", taskData.ID)
 	} else if taskData.GptModel == "gpt-4" {
-		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-4")
+		resp, err = te.OpenAIService.UseGPT4(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-4", taskData.ID)
 	} else if taskData.GptModel == "gpt-3.5-turbo" {
-		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo")
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo", taskData.ID)
 	} else if taskData.GptModel == "gpt-3.5-turbo-16k" {
-		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo")
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo", taskData.ID)
 	} else if taskData.GptModel == "gpt-3.5-turbo-1106" {
-		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo-1106")
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo-1106", taskData.ID)
 	}
 
 	fmt.Println(taskData.GptModel)

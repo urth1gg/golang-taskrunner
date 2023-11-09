@@ -30,7 +30,7 @@ func (s *OpenAIService) SetOpenAIKey(apiKey string) {
 	s.client = openai.NewClient(apiKey)
 }
 
-func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string, headingID string, maxTokens int, model string) (string, error) {
+func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string, headingID string, maxTokens int, model string, taskID string) (string, error) {
 	log.Println("Using GPT3.5")
 
 	if strings.TrimSpace(inputText) == "" {
@@ -88,26 +88,7 @@ END:
 	return result, nil
 }
 
-func (s *OpenAIService) UseAda(ctx context.Context, inputText string) (string, error) {
-	log.Println("Using Ada")
-	if strings.TrimSpace(inputText) == "" {
-		return "", errors.New("input text cannot be empty")
-	}
-
-	request := openai.CompletionRequest{
-		Prompt:    inputText,
-		Model:     "text-ada-001",
-		MaxTokens: 150,
-	}
-
-	response, err := s.client.CreateCompletion(ctx, request)
-	if err != nil {
-		return "", err
-	}
-
-	return response.Choices[0].Text, nil
-}
-func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID string, maxTokens int, model string) (string, error) {
+func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID string, maxTokens int, model string, taskID string) (string, error) {
 
 	if strings.TrimSpace(inputText) == "" {
 		return "", errors.New("input text cannot be empty")
@@ -140,6 +121,12 @@ func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID
 		default:
 			// Try to receive a message from the stream
 			msg, err := response.Recv()
+
+			if shouldResponseStreamsBeCancelled[taskID] == true {
+				log.Println("Cancelling stream")
+				shouldResponseStreamsBeCancelled[taskID] = false
+				goto END
+			}
 			if err == io.EOF {
 				// If no more messages are coming through the stream, break the loop
 				goto END

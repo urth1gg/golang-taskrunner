@@ -14,4 +14,5 @@ type TaskQueueRepo interface {
 	DeleteTask(ctx context.Context, task TaskQueue) error
 	GetTaskFromHistoryByHeadingId(ctx context.Context, headingId string) (*TaskQueue, error)
 	DeleteTasks(ctx context.Context) error
+	DeleteTasksByArticleId(ctx context.Context, article *Article) error
 }

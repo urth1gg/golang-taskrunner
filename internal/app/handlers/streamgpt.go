@@ -93,7 +93,7 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 			fmt.Fprintf(w, "data: %s\n\n", "{}")
 			flusher.Flush()
 
-			time.Sleep(2500 * time.Millisecond)
+			time.Sleep(1 * time.Millisecond)
 		}
 
 	}

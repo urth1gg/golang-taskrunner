@@ -75,6 +75,14 @@ func (h *ArticleHandler) UpdateArticle(c *gin.Context) {
 	h.ArticleService.UpdateArticleGeneric(c, &article, fieldsToUpdate)
 
 	if requestBody.Regenerate {
+		tasksInProgress, err := h.TaskQueueService.GetAllInProgressTasksByArticleId(c, &article)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		h.TaskQueueService.CancelResponseStreamForTasks(c, &tasksInProgress)
+		h.TaskQueueService.DeleteTasksByArticleId(c, &article)
 		h.TaskQueueService.CreateTasksFromArticle(c, article)
 	}
 

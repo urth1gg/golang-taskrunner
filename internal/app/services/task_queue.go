@@ -1,6 +1,7 @@
 package services
 
 import (
+	"caravagio-api-golang/internal/app/db"
 	"caravagio-api-golang/internal/app/models"
 	"context"
 	"database/sql"
@@ -9,9 +10,11 @@ import (
 )
 
 type TaskQueueService struct {
-	db            models.TaskQueueRepo
+	db            *db.DBTaskQueueRepo
 	PromptService *PromptService
 }
+
+var shouldResponseStreamsBeCancelled = make(map[string]interface{})
 
 const (
 	MetaTaskStatusPending      = "meta_pending"
@@ -23,7 +26,7 @@ const (
 	TaskStatusCompletedAndSent = "completed_and_sent"
 )
 
-func NewTaskQueueService(repo models.TaskQueueRepo, promptService *PromptService) *TaskQueueService {
+func NewTaskQueueService(repo *db.DBTaskQueueRepo, promptService *PromptService) *TaskQueueService {
 	return &TaskQueueService{db: repo, PromptService: promptService}
 }
 
@@ -452,5 +455,30 @@ func (s *TaskQueueService) DeleteTasks(ctx context.Context) {
 
 	if err != nil {
 		log.Printf("Failed to delete tasks: %v", err)
+	}
+}
+
+func (s *TaskQueueService) DeleteTasksByArticleId(ctx context.Context, article *models.Article) {
+	err := s.db.DeleteTasksByArticleId(ctx, article)
+
+	if err != nil {
+		log.Printf("Failed to delete tasks: %v", err)
+	}
+}
+
+func (s *TaskQueueService) GetAllInProgressTasksByArticleId(ctx context.Context, article *models.Article) ([]models.TaskQueue, error) {
+	tasks, err := s.db.GetAllInProgressTasksByArticleId(ctx, article)
+
+	if err != nil {
+		log.Printf("Failed to get tasks: %v", err)
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func (s *TaskQueueService) CancelResponseStreamForTasks(ctx context.Context, tasks *[]models.TaskQueue) {
+	for _, task := range *tasks {
+		shouldResponseStreamsBeCancelled[task.ID] = true
 	}
 }

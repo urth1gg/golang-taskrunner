@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/google/uuid"
 )
 
@@ -12,6 +13,7 @@ type TaskQueueRepo interface {
 	GetTask(ctx context.Context, taskID string) (*models.TaskQueue, error)
 	CreateTask(ctx context.Context, t models.TaskQueue) (*models.TaskQueue, error)
 	GetAllPendingTasks(ctx context.Context) ([]models.TaskQueue, error)
+	DeleteTasksByArticleId(ctx context.Context, article *models.Article) error
 }
 
 type DBTaskQueueRepo struct {
@@ -21,6 +23,16 @@ type DBTaskQueueRepo struct {
 func NewDBTaskQueueRepo(db *sql.DB) *DBTaskQueueRepo {
 	return &DBTaskQueueRepo{db: db}
 }
+
+const (
+	MetaTaskStatusPending      = "meta_pending"
+	TaskStatusPending          = "pending"
+	TaskStatusCompleted        = "completed"
+	TaskStatusFailed           = "failed"
+	TaskStatusRetrying         = "retrying"
+	TaskStatusInProgress       = "in_progress"
+	TaskStatusCompletedAndSent = "completed_and_sent"
+)
 
 func (r *DBTaskQueueRepo) GetTask(ctx context.Context, taskID string) (*models.TaskQueue, error) {
 	var task models.TaskQueue
@@ -232,4 +244,52 @@ func (r *DBTaskQueueRepo) DeleteTasks(ctx context.Context) error {
 		return err
 	}
 	return nil
+}
+
+func (r *DBTaskQueueRepo) DeleteTasksByArticleId(ctx context.Context, article *models.Article) error {
+	query := "DELETE FROM tasks_queue WHERE article_id = ?"
+	_, err := r.db.ExecContext(ctx, query, article.ArticleID)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	return nil
+}
+
+func (r *DBTaskQueueRepo) GetAllInProgressTasksByArticleId(ctx context.Context, article *models.Article) ([]models.TaskQueue, error) {
+	query := "SELECT id, heading_id, status, response, cost, created_at, formatted_prompt, article_id, prompt_id, gpt_model, continue_generating, max_tokens FROM tasks_queue WHERE article_id = ? AND status = ?"
+	rows, err := r.db.QueryContext(ctx, query, article.ArticleID, TaskStatusInProgress)
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	var tasks []models.TaskQueue
+
+	defer rows.Close()
+	for rows.Next() {
+		var task models.TaskQueue
+		err := rows.Scan(
+			&task.ID,
+			&task.HeadingID,
+			&task.Status,
+			&task.Response,
+			&task.Cost,
+			&task.CreatedAt,
+			&task.FormattedPrompt,
+			&task.ArticleID,
+			&task.PromptID,
+			&task.GptModel,
+			&task.ContinueGenerating,
+			&task.MaxTokens,
+		)
+		if err != nil {
+			fmt.Println(err)
+			return nil, err
+		}
+
+		tasks = append(tasks, task)
+	}
+	return tasks, nil
 }
