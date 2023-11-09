@@ -64,6 +64,13 @@ func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string, heading
 		default:
 			// Try to receive a message from the stream
 			msg, err := response.Recv()
+
+			if shouldResponseStreamsBeCancelled[taskID] == true {
+				log.Println("Cancelling stream")
+				delete(shouldResponseStreamsBeCancelled, taskID)
+				goto END
+			}
+
 			if err == io.EOF {
 				// If no more messages are coming through the stream, break the loop
 				goto END
@@ -124,7 +131,7 @@ func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID
 
 			if shouldResponseStreamsBeCancelled[taskID] == true {
 				log.Println("Cancelling stream")
-				shouldResponseStreamsBeCancelled[taskID] = false
+				delete(shouldResponseStreamsBeCancelled, taskID)
 				goto END
 			}
 			if err == io.EOF {
