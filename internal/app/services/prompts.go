@@ -60,19 +60,28 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariablesH1(prompt *models
 }
 
 func (s *PromptService) GenerateAllHeadersText(article *models.Article) string {
-	HeadingData := article.HeadingData
-
 	headers := []string{}
 
+	// Assuming MainKeywords is a slice of strings and you want to include it as headers
 	headers = append(headers, article.MainKeywords)
 
-	for _, heading := range HeadingData.Data[0].Children {
-		headers = append(headers, heading.Text)
-	}
+	// Recursively append all headers
+	s.appendHeaders(&headers, article.HeadingData.Data[0].Children)
 
+	// Join all headers with two newlines
 	headersText := strings.Join(headers, "\n\n")
 
 	return headersText
+}
+
+// Recursive function to append headers
+func (s *PromptService) appendHeaders(headers *[]string, nodes []models.Node) {
+	for _, node := range nodes {
+		*headers = append(*headers, node.Text)
+		if len(node.Children) > 0 {
+			s.appendHeaders(headers, node.Children)
+		}
+	}
 }
 
 func (s *PromptService) GenerateFormattedPromptH2Intro(prompt *models.Prompt, node *models.Node, article *models.Article) (string, error) {

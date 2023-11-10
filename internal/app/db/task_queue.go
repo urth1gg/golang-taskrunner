@@ -5,7 +5,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-
 	"github.com/google/uuid"
 )
 
@@ -74,6 +73,7 @@ func (r *DBTaskQueueRepo) CreateTask(ctx context.Context, t models.TaskQueue) (*
 		t.ContinueGenerating,
 		t.MaxTokens,
 	)
+
 	if err != nil {
 		fmt.Println(err)
 		return nil, err
