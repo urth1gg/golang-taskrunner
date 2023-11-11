@@ -232,3 +232,14 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariables(prompt *models.P
 
 	return formattedText, nil
 }
+
+func (s *PromptService) GetAllAvailablePrompts(ctx context.Context, levelRequiredToAccess string) ([]models.Prompt, error) {
+	prompts, err := s.db.GetAllAvailablePrompts(ctx, levelRequiredToAccess)
+
+	if err != nil {
+		fmt.Println(err)
+		return prompts, err
+	}
+
+	return prompts, nil
+}

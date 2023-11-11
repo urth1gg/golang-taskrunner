@@ -12,7 +12,6 @@ import (
 var connectedUsers = make(map[string]interface{})
 
 type StreamGptHandler struct {
-	EventsService    *services.EventsService
 	AuthService      *services.AuthService
 	TaskQueueService *services.TaskQueueService
 	Response         *chan services.GptResponse
@@ -100,6 +99,6 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 
 }
 
-func NewStreamGptHandler(eventsService *services.EventsService, authService *services.AuthService, taskQueueService *services.TaskQueueService, responseChannel *chan services.GptResponse) *StreamGptHandler {
-	return &StreamGptHandler{EventsService: eventsService, AuthService: authService, TaskQueueService: taskQueueService, Response: responseChannel}
+func NewStreamGptHandler(authService *services.AuthService, taskQueueService *services.TaskQueueService, responseChannel *chan services.GptResponse) *StreamGptHandler {
+	return &StreamGptHandler{AuthService: authService, TaskQueueService: taskQueueService, Response: responseChannel}
 }

@@ -56,7 +56,7 @@ func main() {
 	taskQueueService := services.NewTaskQueueService(taskQueueRepo, promptService)
 
 	articleRepo := db.NewDBArticleRepo(conn.DB)
-	articleService := services.NewArticleService(*articleRepo, taskQueueService)
+	articleService := services.NewArticleService(*articleRepo)
 	articleHandler := handlers.NewArticleHandler(articleService, taskQueueService)
 
 	settingsRepo := db.NewDBSettingsRepo(conn.DB)
@@ -64,39 +64,14 @@ func main() {
 
 	openAiService := services.NewOpenAIService("", &responseChannel)
 	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService)
-	taskExecutor.RunScheduledTaskLoader(900 * time.Millisecond) // Run every 5 minutes
-	taskExecutor.StartWorkers(10)                               // Start 10 workers
+	taskExecutor.RunScheduledTaskLoader(900 * time.Millisecond)
+	taskExecutor.StartWorkers(10)
 
-	eventsService := services.NewEventsService(taskQueueService)
-	eventsHandler := handlers.NewEventsHandler(eventsService, authService, taskQueueService)
+	StreamGptHandler := handlers.NewStreamGptHandler(authService, taskQueueService, &responseChannel)
 
-	StreamGptHandler := handlers.NewStreamGptHandler(eventsService, authService, taskQueueService, &responseChannel)
 	r.GET("/articles/:articleID", articleHandler.GetArticle)
 	r.PATCH("/articles/:articleID", articleHandler.UpdateArticle)
-	//r.POST("/articles/:articleID/regenerate", articleHandler.RegenerateHandler)
-	r.GET("/events/:userID", eventsHandler.SendData)
 	r.GET("/streamgpt/:userID", StreamGptHandler.SendData)
 	r.DELETE("/tasks", articleHandler.DeleteTasks)
 	r.Run(":8080")
 }
-
-// r.GET("/sse", func(c *gin.Context) {
-// 	c.Writer.Header().Set("Content-Type", "text/event-stream")
-// 	c.Writer.Header().Set("Cache-Control", "no-cache")
-// 	c.Writer.Header().Set("Connection", "keep-alive")
-// 	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-
-// 	for {
-// 		// You can send any data here; in this example, we're sending the current time.
-// 		data := fmt.Sprintf("data: %s\n\n", time.Now().String())
-
-// 		// Write to the response body. This sends the data to the client.
-// 		c.Writer.Write([]byte(data))
-
-// 		// Flush the data immediately instead of buffering it.
-// 		c.Writer.Flush()
-
-// 		// Delay to simulate some data processing.
-// 		time.Sleep(time.Second)
-// 	}
-// })

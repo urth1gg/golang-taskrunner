@@ -8,12 +8,11 @@ import (
 )
 
 type ArticleService struct {
-	db           db.DBArticleRepo
-	taskQueueSvc TaskQueueService
+	db db.DBArticleRepo
 }
 
-func NewArticleService(db db.DBArticleRepo, taskQueueSvc *TaskQueueService) *ArticleService {
-	return &ArticleService{db: db, taskQueueSvc: *taskQueueSvc}
+func NewArticleService(db db.DBArticleRepo) *ArticleService {
+	return &ArticleService{db: db}
 }
 
 func (s *ArticleService) GetArticle(ctx context.Context, articleID string) (models.Article, error) {
