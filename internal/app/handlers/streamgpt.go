@@ -6,15 +6,17 @@ import (
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"sync"
 	"time"
 )
 
 var connectedUsers = make(map[string]interface{})
+var mutex = sync.Mutex{}
 
 type StreamGptHandler struct {
 	AuthService      *services.AuthService
 	TaskQueueService *services.TaskQueueService
-	Response         *chan services.GptResponse
+	ClientChannels   map[string]chan services.GptResponse
 }
 
 func (h *StreamGptHandler) SendData(c *gin.Context) {
@@ -65,14 +67,31 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 	connectedUsers[userID] = true
 
 	fmt.Println("Client connected to stream")
+
+	clientChannel := make(chan services.GptResponse)
+	h.ClientChannels[userID] = clientChannel
+
+	heartbeatInterval := 30 * time.Second
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+
 	for {
 		select {
 		case <-clientCtx.Done():
 			fmt.Println("Client disconnected")
-			delete(connectedUsers, userID)
 			flusher.Flush()
+			ticker.Stop()
+
+			mutex.Lock()
+			if ch, ok := h.ClientChannels[userID]; ok {
+				close(ch)
+				delete(h.ClientChannels, userID)
+				delete(connectedUsers, userID)
+			}
+			mutex.Unlock()
+
 			return
-		case response := <-*h.Response:
+		case response := <-h.ClientChannels[userID]:
 			json, err := json.Marshal(response)
 
 			if err != nil {
@@ -87,18 +106,15 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 			fmt.Fprintf(w, "data: %s\n\n", json)
 
 			flusher.Flush()
-		default:
-			fmt.Fprintf(w, "event: %s\n", "message")
+		case <-ticker.C:
+			fmt.Fprintf(w, "event: %s\n", "heartbeat")
 			fmt.Fprintf(w, "data: %s\n\n", "{}")
 			flusher.Flush()
-
-			time.Sleep(1 * time.Millisecond)
 		}
-
 	}
 
 }
 
-func NewStreamGptHandler(authService *services.AuthService, taskQueueService *services.TaskQueueService, responseChannel *chan services.GptResponse) *StreamGptHandler {
-	return &StreamGptHandler{AuthService: authService, TaskQueueService: taskQueueService, Response: responseChannel}
+func NewStreamGptHandler(authService *services.AuthService, taskQueueService *services.TaskQueueService, clientChannels map[string]chan services.GptResponse) *StreamGptHandler {
+	return &StreamGptHandler{AuthService: authService, TaskQueueService: taskQueueService, ClientChannels: clientChannels}
 }

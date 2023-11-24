@@ -16,21 +16,22 @@ type GptResponse struct {
 }
 
 type OpenAIService struct {
-	client   *openai.Client
-	Response *chan GptResponse
+	client         *openai.Client
+	ClientChannels map[string]chan GptResponse
+	ArticleService *ArticleService
 }
 
 // Initialize a new OpenAIService with your OpenAI API key.
-func NewOpenAIService(apiKey string, response *chan GptResponse) *OpenAIService {
+func NewOpenAIService(apiKey string, clientChannels map[string]chan GptResponse, articleService *ArticleService) *OpenAIService {
 	client := openai.NewClient(apiKey)
-	return &OpenAIService{client: client, Response: response}
+	return &OpenAIService{client: client, ClientChannels: clientChannels, ArticleService: articleService}
 }
 
 func (s *OpenAIService) SetOpenAIKey(apiKey string) {
 	s.client = openai.NewClient(apiKey)
 }
 
-func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string, headingID string, maxTokens int, model string, taskID string) (string, error) {
+func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string, headingID string, maxTokens int, model string, taskID string, articleID string) (string, error) {
 	log.Println("Using GPT3.5")
 
 	if strings.TrimSpace(inputText) == "" {
@@ -53,6 +54,12 @@ func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string, heading
 		return "", err
 	}
 
+	article, err := s.ArticleService.GetArticle(ctx, articleID)
+
+	if err != nil {
+		return "", err
+	}
+
 	var result string
 
 	// Use a for loop to receive messages from the stream
@@ -86,7 +93,12 @@ func (s *OpenAIService) UseGPT3_5(ctx context.Context, inputText string, heading
 				HeadingID: headingID,
 				Response:  msg.Choices[0].Delta.Content,
 			}
-			*s.Response <- chanData
+			// *s.Response <- chanData
+
+			if s.ClientChannels[article.UserID] != nil {
+				log.Println("Sending response to client")
+				s.ClientChannels[article.UserID] <- chanData
+			}
 		}
 	}
 
@@ -95,7 +107,7 @@ END:
 	return result, nil
 }
 
-func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID string, maxTokens int, model string, taskID string) (string, error) {
+func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID string, maxTokens int, model string, taskID string, articleID string) (string, error) {
 
 	if strings.TrimSpace(inputText) == "" {
 		return "", errors.New("input text cannot be empty")
@@ -112,6 +124,12 @@ func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID
 	}
 
 	response, err := s.client.CreateChatCompletionStream(ctx, request)
+
+	if err != nil {
+		return "", err
+	}
+
+	article, err := s.ArticleService.GetArticle(ctx, articleID)
 
 	if err != nil {
 		return "", err
@@ -149,7 +167,11 @@ func (s *OpenAIService) UseGPT4(ctx context.Context, inputText string, headingID
 				HeadingID: headingID,
 				Response:  msg.Choices[0].Delta.Content,
 			}
-			*s.Response <- chanData
+
+			if s.ClientChannels[article.UserID] != nil {
+				log.Println("Sending response to client")
+				s.ClientChannels[article.UserID] <- chanData
+			}
 		}
 	}
 

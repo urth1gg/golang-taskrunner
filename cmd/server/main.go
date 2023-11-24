@@ -41,7 +41,7 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	responseChannel := make(chan services.GptResponse)
+	clientChannels := make(map[string]chan services.GptResponse)
 
 	authRepo := db.NewDBAuthRepo(conn.DB)
 	authService := services.NewAuthService(authRepo)
@@ -62,12 +62,12 @@ func main() {
 	settingsRepo := db.NewDBSettingsRepo(conn.DB)
 	settingsService := services.NewSettingsService(settingsRepo)
 
-	openAiService := services.NewOpenAIService("", &responseChannel)
+	openAiService := services.NewOpenAIService("", clientChannels, articleService)
 	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService)
 	taskExecutor.RunScheduledTaskLoader(900 * time.Millisecond)
 	taskExecutor.StartWorkers(10)
 
-	StreamGptHandler := handlers.NewStreamGptHandler(authService, taskQueueService, &responseChannel)
+	StreamGptHandler := handlers.NewStreamGptHandler(authService, taskQueueService, clientChannels)
 
 	r.GET("/articles/:articleID", articleHandler.GetArticle)
 	r.PATCH("/articles/:articleID", articleHandler.UpdateArticle)
