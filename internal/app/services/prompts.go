@@ -4,17 +4,17 @@ import (
 	"caravagio-api-golang/internal/app/db"
 	"caravagio-api-golang/internal/app/models"
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 )
 
 type PromptService struct {
-	db db.PromptRepo
+	db               db.PromptRepo
+	variablesService *VariablesService
 }
 
-func NewPromptService(db db.PromptRepo) *PromptService {
-	return &PromptService{db: db}
+func NewPromptService(db db.PromptRepo, variablesService *VariablesService) *PromptService {
+	return &PromptService{db: db, variablesService: variablesService}
 }
 
 func (s *PromptService) GetPrompt(ctx context.Context, promptID string) (models.Prompt, error) {
@@ -41,6 +41,7 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariablesH1(prompt *models
 	headersData := s.GenerateAllHeadersText(article)
 	keywords := article.Keywords
 	moreInfo := article.MoreInfo
+	maxLength := fmt.Sprintf("%d", article.Length)
 
 	fmt.Printf("%s\n", keywords)
 	fmt.Printf("%s\n", moreInfo)
@@ -53,6 +54,25 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariablesH1(prompt *models
 	formattedText = strings.Replace(formattedText, "{Keywords}", keywords, -1)
 	formattedText = strings.Replace(formattedText, "{more_info}", moreInfo, -1)
 	formattedText = strings.Replace(formattedText, "{additional_info}", moreInfo, -1)
+	formattedText = strings.Replace(formattedText, "{max_length}", maxLength, -1)
+
+	variables := db.Variables{
+		H1Title:        mainHeading,
+		AllHeaders:     headersData,
+		Keywords:       keywords,
+		MoreInfo:       moreInfo,
+		AdditionalInfo: moreInfo,
+		MaxLength:      article.Length,
+		HeadingID:      article.HeadingData.Data[0].ID,
+	}
+
+	ctx := context.Background()
+	_, err := s.variablesService.CreateVariables(ctx, &variables)
+
+	if err != nil {
+		fmt.Println(err)
+		s.variablesService.UpdateVariables(ctx, &variables)
+	}
 
 	formattedText = strings.TrimSpace(formattedText)
 
@@ -82,26 +102,6 @@ func (s *PromptService) appendHeaders(headers *[]string, nodes []models.Node) {
 			s.appendHeaders(headers, node.Children)
 		}
 	}
-}
-
-func (s *PromptService) GenerateFormattedPromptH2Intro(prompt *models.Prompt, node *models.Node, article *models.Article) (string, error) {
-	if !prompt.TextArea.Valid {
-		// Handle the case where the TextArea is null.
-		// You can return an empty string, an error, or some default value.
-		return "", errors.New("TextArea is null")
-	}
-
-	mainHeading := article.MainKeywords
-	nodeHeading := node.Text
-	headersData := s.GenerateAllHeadersText(article)
-
-	formattedText := strings.Replace(prompt.TextArea.String, "{h1_title}", mainHeading, -1)
-	formattedText = strings.Replace(formattedText, "{h2_title}", nodeHeading, -1)
-	formattedText = strings.Replace(formattedText, "{all_header}", headersData, -1)
-	formattedText = strings.Replace(formattedText, "{current_header}", nodeHeading, -1)
-	formattedText = strings.TrimSpace(formattedText)
-
-	return formattedText, nil
 }
 
 // TODO: Refactor this
@@ -210,6 +210,7 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariables(prompt *models.P
 	parentHeader := s.GenerateParentHeader(node, article)
 	keywords := node.Keywords
 	moreInfo := node.MoreInfo
+	maxLength := fmt.Sprintf("%d", node.Length)
 
 	fmt.Printf("%s\n", keywords)
 	fmt.Printf("%s\n", moreInfo)
@@ -227,6 +228,30 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariables(prompt *models.P
 	formattedText = strings.Replace(formattedText, "{parent_header}", parentHeader, -1)
 	formattedText = strings.Replace(formattedText, "{more_info}", moreInfo, -1)
 	formattedText = strings.Replace(formattedText, "{additional_info}", moreInfo, -1)
+	formattedText = strings.Replace(formattedText, "{max_length}", maxLength, -1)
+
+	variables := db.Variables{
+		H1Title:        mainHeading,
+		H2Title:        nodeHeading,
+		AllHeaders:     headersData,
+		CurrentHeader:  nodeHeading,
+		PreviousHeader: prevHeader,
+		NextHeader:     nextHeader,
+		Keywords:       keywords,
+		ParentHeader:   parentHeader,
+		MoreInfo:       moreInfo,
+		AdditionalInfo: moreInfo,
+		MaxLength:      node.Length,
+		HeadingID:      node.ID,
+	}
+
+	ctx := context.Background()
+	_, err := s.variablesService.CreateVariables(ctx, &variables)
+
+	if err != nil {
+		fmt.Println(err)
+		s.variablesService.UpdateVariables(ctx, &variables)
+	}
 
 	formattedText = strings.TrimSpace(formattedText)
 

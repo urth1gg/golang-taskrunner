@@ -17,8 +17,8 @@ import (
 func main() {
 	r := gin.Default()
 
-	user := "test"
-	password := "mysql"
+	user := "root"
+	password := "Krishan@108"
 	host := "localhost"
 	port := 3306
 	dbName := "caravagio"
@@ -49,29 +49,43 @@ func main() {
 
 	r.Use(authMiddleware.Middleware())
 
+	variablesRepo := db.NewDBVariablesRepo(conn.DB)
 	promptRepo := db.NewDBPromptRepo(conn.DB)
-	promptService := services.NewPromptService(promptRepo)
-
 	taskQueueRepo := db.NewDBTaskQueueRepo(conn.DB)
-	taskQueueService := services.NewTaskQueueService(taskQueueRepo, promptService)
-
 	articleRepo := db.NewDBArticleRepo(conn.DB)
-	articleService := services.NewArticleService(*articleRepo)
-	articleHandler := handlers.NewArticleHandler(articleService, taskQueueService)
-
 	settingsRepo := db.NewDBSettingsRepo(conn.DB)
-	settingsService := services.NewSettingsService(settingsRepo)
+	defaultPromptsRepo := db.NewDBDefaultPromptsRepo(conn.DB)
 
+	variablesService := services.NewVariablesService(variablesRepo)
+	promptService := services.NewPromptService(promptRepo, variablesService)
+	taskQueueService := services.NewTaskQueueService(taskQueueRepo, promptService)
+	articleService := services.NewArticleService(*articleRepo)
+	settingsService := services.NewSettingsService(settingsRepo)
 	openAiService := services.NewOpenAIService("", clientChannels, articleService)
-	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService)
+	defaultPromptsService := services.NewDefaultPromptsService(defaultPromptsRepo)
+
+	streamGptHandler := handlers.NewStreamGptHandler(authService, taskQueueService, clientChannels)
+	articleHandler := handlers.NewArticleHandler(articleService, taskQueueService)
+	settingsHandler := handlers.NewSettingsHandler(settingsService, defaultPromptsService)
+
+	taskExecutor := services.NewTaskExecutor(openAiService, taskQueueService, settingsService, articleService, variablesService)
 	taskExecutor.RunScheduledTaskLoader(900 * time.Millisecond)
 	taskExecutor.StartWorkers(10)
 
-	StreamGptHandler := handlers.NewStreamGptHandler(authService, taskQueueService, clientChannels)
-
 	r.GET("/articles/:articleID", articleHandler.GetArticle)
 	r.PATCH("/articles/:articleID", articleHandler.UpdateArticle)
-	r.GET("/streamgpt/:userID", StreamGptHandler.SendData)
+	r.GET("/streamgpt/:userID", streamGptHandler.SendData)
 	r.DELETE("/tasks", articleHandler.DeleteTasks)
+	r.PUT("/settings/:userID/default-prompts", settingsHandler.UpdateDefaultPrompts)
+	r.GET("/settings/:userID/default-prompts", settingsHandler.GetSettings)
 	r.Run(":8080")
 }
+
+/*
+CREATE TABLE default_prompts (
+    user_id INT NOT NULL,
+    heading_name_and_position VARCHAR(255) NOT NULL,
+    prompt_id INT NOT NULL,
+    PRIMARY KEY (user_id, heading_name_and_position)
+);
+*/

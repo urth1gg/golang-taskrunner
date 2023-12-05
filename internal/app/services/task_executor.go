@@ -25,6 +25,7 @@ type TaskExecutor struct {
 	OpenAIService    *OpenAIService
 	SettingsService  *SettingsService
 	ArticleService   *ArticleService
+	VariablesService *VariablesService
 	RetryDelay       time.Duration
 }
 
@@ -34,7 +35,7 @@ type Task struct {
 	LastError error
 }
 
-func NewTaskExecutor(openAiService *OpenAIService, taskQueueService *TaskQueueService, settingsService *SettingsService, articleService *ArticleService) *TaskExecutor {
+func NewTaskExecutor(openAiService *OpenAIService, taskQueueService *TaskQueueService, settingsService *SettingsService, articleService *ArticleService, variableService *VariablesService) *TaskExecutor {
 	return &TaskExecutor{
 		TaskQueue:        make(chan Task, 100),
 		RetryQueue:       make(chan Task, 100),
@@ -44,6 +45,7 @@ func NewTaskExecutor(openAiService *OpenAIService, taskQueueService *TaskQueueSe
 		OpenAIService:    openAiService,
 		SettingsService:  settingsService,
 		ArticleService:   articleService,
+		VariablesService: variableService,
 	}
 }
 
@@ -172,9 +174,6 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo-1106", taskData.ID, taskData.ArticleID)
 	}
 
-	fmt.Println(taskData.GptModel)
-	fmt.Println("model")
-
 	if err != nil {
 		HandleError(err)
 		//return err
@@ -211,14 +210,6 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 		log.Println(err)
 		HandleError(err)
 		//return err
-	}
-
-	// TODO: this doesn't happen due to AddTasksToHistory removing it in case of GPT-4
-	// _, err = te.TaskQueueService.UpdateTask(ctx, taskData)
-
-	if err != nil {
-		HandleError(err)
-		//	return err
 	}
 
 	log.Println("Going once")

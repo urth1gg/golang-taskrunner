@@ -58,8 +58,8 @@ func (h *StreamGptHandler) SendData(c *gin.Context) {
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
-	//w.Header().Set("Access-Control-Allow-Origin", "http://143.110.157.129:3000")
+	// w.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+	w.Header().Set("Access-Control-Allow-Origin", "http://143.110.157.129:3000")
 	w.Header().Set("Transfer-Encoding", "chunked")
 
 	clientCtx := c.Request.Context()
