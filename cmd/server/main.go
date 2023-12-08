@@ -17,8 +17,8 @@ import (
 func main() {
 	r := gin.Default()
 
-	user := "root"
-	password := "Krishan@108"
+	user := "test"
+	password := "mysql"
 	host := "localhost"
 	port := 3306
 	dbName := "caravagio"
@@ -88,4 +88,21 @@ CREATE TABLE default_prompts (
     prompt_id INT NOT NULL,
     PRIMARY KEY (user_id, heading_name_and_position)
 );
+*/
+
+/*
++--------------------------------------+---------------------------+--------------------------------------+
+| user_id                              | heading_name_and_position | prompt_id                            |
++--------------------------------------+---------------------------+--------------------------------------+
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_first_h2   | c84302d4-405f-4375-bd4b-db53ef2d7842 |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_first_h3   | f5295e64-4c8f-4e09-a816-d3df8f1c4fcc |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_first_h4   | 4b3caaac-65b0-40e4-84cb-8dcec1eca10a |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_h1         | 31f25465-3224-40e9-b535-d9dc4e81b2ce |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_last_h2    | c84302d4-405f-4375-bd4b-db53ef2d7842 |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_last_h3    | 831a62f3-7504-11ee-b232-00155db8d1fa |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_last_h4    | 4b3caaac-65b0-40e4-84cb-8dcec1eca10a |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_middle_h2  | c84302d4-405f-4375-bd4b-db53ef2d7842 |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_middle_h3  | 5a1cc720-d796-43a7-8ec5-2a5bede0b28c |
+| eb360df1-d5a6-467b-8bda-7ba02e114e4c | default_prompt_middle_h4  | 4b3caaac-65b0-40e4-84cb-8dcec1eca10a |
+
 */

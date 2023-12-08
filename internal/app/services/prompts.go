@@ -41,7 +41,7 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariablesH1(prompt *models
 	headersData := s.GenerateAllHeadersText(article)
 	keywords := article.Keywords
 	moreInfo := article.MoreInfo
-	maxLength := fmt.Sprintf("%d", article.Length)
+	maxLength := fmt.Sprintf("%d", article.HeadingData.Data[0].Length)
 
 	fmt.Printf("%s\n", keywords)
 	fmt.Printf("%s\n", moreInfo)
@@ -214,6 +214,7 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariables(prompt *models.P
 
 	fmt.Printf("%s\n", keywords)
 	fmt.Printf("%s\n", moreInfo)
+	fmt.Println(maxLength)
 	// TODO: Remove the duplicate string replace calls such as {Keywords} and {keywords} and {more_info} and {additional_info}.
 	// We do not know the exact information that was in the previous version.
 
