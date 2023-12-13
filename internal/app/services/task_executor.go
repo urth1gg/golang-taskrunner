@@ -154,12 +154,15 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 			HandleError(err)
 		}
 
-		prevResponse := task.Response.String
-		//prevPrompt := taskData.FormattedPrompt.String
-		taskData.FormattedPrompt.String = prependToTheStartOfThePrompt + prevResponse
+		if task != nil {
+			prevResponse := task.Response.String
+			//prevPrompt := taskData.FormattedPrompt.String
+			taskData.FormattedPrompt.String = prependToTheStartOfThePrompt + prevResponse
 
-		fmt.Println("Prompt2")
-		fmt.Printf("%s", taskData.FormattedPrompt.String)
+			fmt.Println("Prompt2")
+			fmt.Printf("%s", taskData.FormattedPrompt.String)
+		}
+
 	}
 
 	if taskData.GptModel == "gpt-4-1106-preview" {
