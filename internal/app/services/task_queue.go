@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"github.com/google/uuid"
 	"log"
+	"strings"
 )
 
 type TaskQueueService struct {
@@ -114,6 +115,8 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 
 		t.GptModel = prompt.GPTModel.String
 
+		t.MaxTokens = int(prompt.MaxLength.Int64)
+
 		if err != nil {
 			log.Printf("Failed to get prompt: %v", err)
 			return nil, err
@@ -157,7 +160,7 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 					FormattedPrompt: sql.NullString{String: "", Valid: false},
 					PromptID:        header.PromptID,
 					GptModel:        "",
-					MaxTokens:       header.Length,
+					MaxTokens:       int(prompt.MaxLength.Int64),
 				}
 				t.GptModel = prompt.GPTModel.String
 
@@ -200,7 +203,7 @@ func (s *TaskQueueService) CreateTasksFromArticle(ctx context.Context, article m
 						FormattedPrompt: sql.NullString{String: "", Valid: false},
 						PromptID:        subHeader.PromptID,
 						GptModel:        "",
-						MaxTokens:       subHeader.Length,
+						MaxTokens:       int(prompt.MaxLength.Int64),
 					}
 
 					t.GptModel = prompt.GPTModel.String
@@ -256,6 +259,7 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 			return nil, err
 		}
 
+		t.MaxTokens = int(prompt.MaxLength.Int64)
 		t.GptModel = prompt.GPTModel.String
 
 		formattedPrompt := s.PromptService.GenerateFormattedPromptWithAllVariablesH1(&prompt, &article)
@@ -297,7 +301,7 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 					PromptID:           header.PromptID,
 					GptModel:           "",
 					ContinueGenerating: true,
-					MaxTokens:          header.Length,
+					MaxTokens:          int(prompt.MaxLength.Int64),
 				}
 
 				t.GptModel = prompt.GPTModel.String
@@ -342,7 +346,7 @@ func (s *TaskQueueService) CreateContinueTasksFromArticle(ctx context.Context, a
 						PromptID:           subHeader.PromptID,
 						GptModel:           "",
 						ContinueGenerating: true,
-						MaxTokens:          subHeader.Length,
+						MaxTokens:          int(prompt.MaxLength.Int64),
 					}
 
 					t.GptModel = prompt.GPTModel.String
@@ -481,4 +485,120 @@ func (s *TaskQueueService) CancelResponseStreamForTasks(ctx context.Context, tas
 	for _, task := range *tasks {
 		shouldResponseStreamsBeCancelled[task.ID] = true
 	}
+}
+
+func FindNodesThatAreNotCompleted(nodes []models.Node) []models.Node {
+	var nodesToReturn []models.Node
+
+	var checkNode func(n models.Node)
+	checkNode = func(n models.Node) {
+		if !n.IsCompleted {
+			log.Println(n)
+			nodesToReturn = append(nodesToReturn, n)
+		}
+
+		for _, child := range n.Children {
+			checkNode(child)
+		}
+	}
+
+	for _, node := range nodes {
+		checkNode(node)
+	}
+
+	return nodesToReturn
+}
+
+func (s *TaskQueueService) CreateFixGrammarTasksFromArticle(ctx context.Context, article models.Article) ([]models.TaskQueue, error) {
+
+	incompleteNodes := FindNodesThatAreNotCompleted(article.HeadingData.Data)
+
+	tasks := []models.TaskQueue{}
+
+	promptID := "bd56f391-9ae6-11ee-8fe2-00155d509f69"
+	prompt, err := s.PromptService.GetPrompt(ctx, promptID)
+
+	if err != nil {
+		log.Printf("Failed to get prompt: %v", err)
+		return nil, err
+	}
+
+	for _, node := range incompleteNodes {
+
+		log.Println(node)
+		promptText := strings.Replace(prompt.TextArea.String, "{text}", node.Response, -1)
+
+		t := models.TaskQueue{
+			ID:              uuid.New().String(),
+			ArticleID:       article.ArticleID,
+			Status:          TaskStatusPending,
+			HeadingID:       node.ID,
+			Response:        sql.NullString{String: "", Valid: false},
+			Cost:            sql.NullFloat64{Float64: 0, Valid: false},
+			FormattedPrompt: sql.NullString{String: promptText, Valid: true},
+			PromptID:        promptID,
+			GptModel:        "gpt-4-1106-preview",
+			MaxTokens:       int(prompt.MaxLength.Int64),
+		}
+
+		tasks = append(tasks, t)
+
+	}
+
+	for _, task := range tasks {
+		_, err := s.CreateTask(ctx, task)
+
+		if err != nil {
+			log.Printf("Failed to create task: %v", err)
+			return nil, err
+		}
+	}
+
+	return tasks, nil
+}
+
+func (s *TaskQueueService) CreateFinishSentenceTasksFromArticle(ctx context.Context, article models.Article) ([]models.TaskQueue, error) {
+
+	incompleteNodes := FindNodesThatAreNotCompleted(article.HeadingData.Data)
+
+	tasks := []models.TaskQueue{}
+
+	promptID := "6727d92b-9ae6-11ee-8fe2-00155d509f69"
+
+	prompt, err := s.PromptService.GetPrompt(ctx, promptID)
+
+	if err != nil {
+		log.Printf("Failed to get prompt: %v", err)
+		return nil, err
+	}
+
+	for _, node := range incompleteNodes {
+		promptText := strings.Replace(prompt.TextArea.String, "{text}", node.Response, -1)
+
+		t := models.TaskQueue{
+			ID:              uuid.New().String(),
+			ArticleID:       article.ArticleID,
+			Status:          TaskStatusPending,
+			HeadingID:       node.ID,
+			Response:        sql.NullString{String: "", Valid: false},
+			Cost:            sql.NullFloat64{Float64: 0, Valid: false},
+			FormattedPrompt: sql.NullString{String: promptText, Valid: true},
+			PromptID:        promptID,
+			GptModel:        "gpt-4-1106-preview",
+			MaxTokens:       int(prompt.MaxLength.Int64),
+		}
+
+		tasks = append(tasks, t)
+	}
+
+	for _, task := range tasks {
+		_, err := s.CreateTask(ctx, task)
+
+		if err != nil {
+			log.Printf("Failed to create task: %v", err)
+			return nil, err
+		}
+	}
+
+	return tasks, nil
 }

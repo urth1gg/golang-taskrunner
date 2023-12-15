@@ -54,7 +54,7 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariablesH1(prompt *models
 	formattedText = strings.Replace(formattedText, "{Keywords}", keywords, -1)
 	formattedText = strings.Replace(formattedText, "{more_info}", moreInfo, -1)
 	formattedText = strings.Replace(formattedText, "{additional_info}", moreInfo, -1)
-	formattedText = strings.Replace(formattedText, "{max_length}", maxLength, -1)
+	formattedText = strings.Replace(formattedText, "{max_words}", maxLength, -1)
 
 	variables := db.Variables{
 		H1Title:        mainHeading,
@@ -229,7 +229,7 @@ func (s *PromptService) GenerateFormattedPromptWithAllVariables(prompt *models.P
 	formattedText = strings.Replace(formattedText, "{parent_header}", parentHeader, -1)
 	formattedText = strings.Replace(formattedText, "{more_info}", moreInfo, -1)
 	formattedText = strings.Replace(formattedText, "{additional_info}", moreInfo, -1)
-	formattedText = strings.Replace(formattedText, "{max_length}", maxLength, -1)
+	formattedText = strings.Replace(formattedText, "{max_words}", maxLength, -1)
 
 	variables := db.Variables{
 		H1Title:        mainHeading,

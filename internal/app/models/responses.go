@@ -20,4 +20,6 @@ type ArticleBody struct {
 	Regenerate      bool `json:"regenerate"`
 	Continue        bool `json:"continue"`
 	MetaDescription Node `json:"metaDescription"`
+	FixGrammar      bool `json:"fix_grammar"`
+	FinishSentence  bool `json:"finish_sentence"`
 }

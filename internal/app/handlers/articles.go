@@ -4,6 +4,7 @@ import (
 	"caravagio-api-golang/internal/app/models"
 	"caravagio-api-golang/internal/app/services"
 	"encoding/json"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 )
@@ -90,6 +91,15 @@ func (h *ArticleHandler) UpdateArticle(c *gin.Context) {
 		h.TaskQueueService.CreateContinueTasksFromArticle(c, article)
 	}
 
+	if requestBody.FinishSentence {
+		h.TaskQueueService.CreateFinishSentenceTasksFromArticle(c, article)
+	}
+
+	if requestBody.FixGrammar {
+		fmt.Printf("%v", article)
+		h.TaskQueueService.CreateFixGrammarTasksFromArticle(c, article)
+	}
+
 	if requestBody.MetaDescription.ID != "" {
 		_, err := h.TaskQueueService.CreateMetaDescriptionTask(c, &article, &requestBody.MetaDescription)
 
@@ -130,3 +140,66 @@ func NewArticleHandler(s *services.ArticleService, t *services.TaskQueueService)
 
 //TODO: Delete this
 //ALTER TABLE articles ADD COLUMN meta_description TEXT DEFAULT '';
+/*
+INSERT INTO prompts (
+    prompt_id,
+    user_id,
+    name,
+    description,
+    text_area,
+    gpt_model,
+    temperature,
+    max_length,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    created_at,
+    level_required_to_access
+)
+VALUES (
+    'bd56f391-9ae6-11ee-8fe2-00155d509f69',
+    'eb360df1-d5a6-467b-8bda-7ba02e114e4c',
+    'Fix grammar name',
+    'Fix grammar desc',
+    'Fix any grammatical errors you find in the text below: \n\n {text}',
+    'gpt-4-1106-preview',
+    0.8,
+    1000,
+    1,
+    0.3,
+    0.3,
+    '2023-12-15 02:10:30',
+    '1'
+);
+
+INSERT INTO prompts (
+    prompt_id,
+    user_id,
+    name,
+    description,
+    text_area,
+    gpt_model,
+    temperature,
+    max_length,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    created_at,
+    level_required_to_access
+)
+VALUES (
+    '6727d92b-9ae6-11ee-8fe2-00155d509f69',
+    'eb360df1-d5a6-467b-8bda-7ba02e114e4c',
+    'Finish sentence name',
+    'Finish sentence desc',
+    'Finish the sentence and paragraph that you’ve started but don’t write more: \n\n {text}',
+    'gpt-4-1106-preview',
+    0.8,
+    1000,
+    1,
+    0.3,
+    0.3,
+    '2023-12-15 02:08:05',
+    '1'
+);
+*/
