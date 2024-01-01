@@ -88,3 +88,4 @@ func (h *SettingsHandler) UpdateDefaultPrompts(c *gin.Context) {
 		"prettyJSON": string(prettyJSON),
 	})
 }
+
