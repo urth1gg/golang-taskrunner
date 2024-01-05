@@ -172,7 +172,7 @@ func (te *TaskExecutor) processTask(taskData models.TaskQueue) error {
 	} else if taskData.GptModel == "gpt-3.5-turbo" {
 		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo", taskData.ID, taskData.ArticleID)
 	} else if taskData.GptModel == "gpt-3.5-turbo-16k" {
-		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo", taskData.ID, taskData.ArticleID)
+		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo-16k", taskData.ID, taskData.ArticleID)
 	} else if taskData.GptModel == "gpt-3.5-turbo-1106" {
 		resp, err = te.OpenAIService.UseGPT3_5(ctx, taskData.FormattedPrompt.String, taskData.HeadingID, taskData.MaxTokens, "gpt-3.5-turbo-1106", taskData.ID, taskData.ArticleID)
 	}
