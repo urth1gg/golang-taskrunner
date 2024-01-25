@@ -166,6 +166,54 @@ func (s *DBArticleRepo) UpdateArticleGeneric(ctx context.Context, article *model
 	return int(rowsAffected), nil
 }
 
+func (s *DBArticleRepo) CreateArticle(ctx context.Context, article *models.Article) (int, error) {
+
+	headingData, err := json.MarshalIndent(article.HeadingData.Data, "", " ")
+	if err != nil {
+		fmt.Println("JSON ERR")
+		fmt.Println(err)
+		return 0, err
+	}
+
+	result, err := s.db.ExecContext(ctx, "INSERT INTO articles (article_id, user_id, language, main_keywords, urls, status, keywords, heading_data, parsed_prompt, created_at, total_words, cost, html_content, meta_description) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", article.ArticleID, article.UserID, article.Language, article.MainKeywords, article.URLs, article.Status, article.Keywords, string(headingData), article.ParsedPrompt, article.CreatedAt, article.TotalWords, article.Cost, article.HTMLContent, article.MetaDescription)
+
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		fmt.Println(err)
+		return 0, err
+	}
+
+	if rowsAffected == 0 {
+		return 0, errors.New("no rows updated")
+	}
+
+	return int(rowsAffected), nil
+}
+
 func NewDBArticleRepo(db *sql.DB) *DBArticleRepo {
 	return &DBArticleRepo{db: db}
 }
+
+// 	+------------------+-----------------------------------+------+-----+---------+-------+
+// | Field            | Type                              | Null | Key | Default | Extra |
+// +------------------+-----------------------------------+------+-----+---------+-------+
+// | article_id       | varchar(255)                      | NO   | PRI | NULL    |       |
+// | user_id          | varchar(255)                      | YES  | MUL | NULL    |       |
+// | language         | varchar(255)                      | YES  |     | NULL    |       |
+// | main_keywords    | varchar(255)                      | YES  |     | NULL    |       |
+// | urls             | text                              | YES  |     | NULL    |       |
+// | status           | enum('active','inactive','draft') | YES  |     | draft   |       |
+// | keywords         | text                              | YES  |     | NULL    |       |
+// | heading_data     | json                              | YES  |     | NULL    |       |
+// | parsed_prompt    | text                              | YES  |     | NULL    |       |
+// | created_at       | datetime                          | YES  |     | NULL    |       |
+// | total_words      | int                               | YES  |     | 0       |       |
+// | cost             | decimal(18,10)                    | YES  |     | NULL    |       |
+// | html_content     | text                              | YES  |     | NULL    |       |
+// | meta_description | text                              | YES  |     | NULL    |       |
+// +------------------+-----------------------------------+------+-----+---------+-------+

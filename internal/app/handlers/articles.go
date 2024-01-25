@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	// "reflect"
+	"caravagio-api-golang/internal/app/db"
 	"caravagio-api-golang/internal/app/models"
 	"caravagio-api-golang/internal/app/services"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
+	"time"
 )
 
 // ArticleHandler is the struct to hold necessary dependencies
@@ -133,10 +137,102 @@ func (h *ArticleHandler) DeleteTasks(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Successfully deleted tasks"})
 }
 
+type NewArticleBody struct {
+	Data struct {
+		ID          string        `json:"id"`
+		Tag         int           `json:"tag"`
+		Text        string        `json:"text"`
+		Level       int           `json:"level"`
+		Length      int           `json:"length"`
+		Children    []models.Node `json:"children"`
+		Expanded    bool          `json:"expanded"`
+		Keywords    string        `json:"keywords"`
+		Response    string        `json:"response"`
+		MoreInfo    string        `json:"more_info"`
+		PromptID    string        `json:"prompt_id"` // Assuming this can be null, hence using a pointer
+		IsCompleted bool          `json:"is_completed"`
+	} `json:"data"`
+}
+
+func (h *ArticleHandler) CreateArticle(c *gin.Context) {
+
+	var requestBody NewArticleBody
+	var headingData models.HeadingData
+
+	headingData.Data = []models.Node{}
+
+	if err := c.BindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	node := models.Node{
+		ID:          requestBody.Data.ID,
+		Children:    requestBody.Data.Children,
+		Tag:         requestBody.Data.Tag,
+		Text:        requestBody.Data.Text,
+		Keywords:    requestBody.Data.Keywords,
+		PromptID:    requestBody.Data.PromptID,
+		Expanded:    requestBody.Data.Expanded,
+		IsCompleted: requestBody.Data.IsCompleted,
+		Level:       requestBody.Data.Level,
+		Length:      requestBody.Data.Length,
+		MoreInfo:    requestBody.Data.MoreInfo,
+		Response:    requestBody.Data.Response,
+	}
+
+	fmt.Println("Children", requestBody.Data.Children)
+	fmt.Println("Node")
+	fmt.Println(node)
+
+	headingData.Data = append(headingData.Data, node)
+	currentTime := time.Now()
+
+	apiKey := c.Value("apiKey").(*db.APIKey)
+
+	article := models.Article{
+		ArticleID:    requestBody.Data.ID,
+		UserID:       apiKey.UserID,
+		MainKeywords: requestBody.Data.Text,
+		Keywords:     requestBody.Data.Keywords,
+		MoreInfo:     requestBody.Data.MoreInfo,
+		HeadingData:  headingData,
+		CreatedAt:    sql.NullTime{Time: currentTime, Valid: true},
+	}
+
+	_, err := h.ArticleService.CreateArticle(c, &article)
+
+	if err != nil {
+		fmt.Println(err)
+		c.Data(http.StatusInternalServerError, "application/json", []byte(err.Error()))
+	}
+
+	c.Data(http.StatusOK, "application/json", []byte("Successfully created article"))
+}
+
 // NewArticleHandler creates a new articles ArticleHandler
 func NewArticleHandler(s *services.ArticleService, t *services.TaskQueueService) *ArticleHandler {
 	return &ArticleHandler{ArticleService: s, TaskQueueService: t}
 }
+
+// 	+------------------+-----------------------------------+------+-----+---------+-------+
+// | Field            | Type                              | Null | Key | Default | Extra |
+// +------------------+-----------------------------------+------+-----+---------+-------+
+// | article_id       | varchar(255)                      | NO   | PRI | NULL    |       |
+// | user_id          | varchar(255)                      | YES  | MUL | NULL    |       |
+// | language         | varchar(255)                      | YES  |     | NULL    |       |
+// | main_keywords    | varchar(255)                      | YES  |     | NULL    |       |
+// | urls             | text                              | YES  |     | NULL    |       |
+// | status           | enum('active','inactive','draft') | YES  |     | draft   |       |
+// | keywords         | text                              | YES  |     | NULL    |       |
+// | heading_data     | json                              | YES  |     | NULL    |       |
+// | parsed_prompt    | text                              | YES  |     | NULL    |       |
+// | created_at       | datetime                          | YES  |     | NULL    |       |
+// | total_words      | int                               | YES  |     | 0       |       |
+// | cost             | decimal(18,10)                    | YES  |     | NULL    |       |
+// | html_content     | text                              | YES  |     | NULL    |       |
+// | meta_description | text                              | YES  |     | NULL    |       |
+// +------------------+-----------------------------------+------+-----+---------+-------+
 
 //TODO: Delete this
 //ALTER TABLE articles ADD COLUMN meta_description TEXT DEFAULT '';

@@ -47,3 +47,14 @@ func (s *ArticleService) UpdateArticleGeneric(ctx context.Context, article *mode
 
 	return affectedRows, nil
 }
+
+func (s *ArticleService) CreateArticle(ctx context.Context, article *models.Article) (int, error) {
+
+	affectedRows, err := s.db.CreateArticle(ctx, article)
+
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	return affectedRows, nil
+}

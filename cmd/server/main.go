@@ -36,7 +36,7 @@ func main() {
 
 	r.Use(cors.New(config))
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, port, dbName)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, password, host, port, dbName)
 	conn, err := db.NewConnection(dsn)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -79,5 +79,6 @@ func main() {
 	r.DELETE("/tasks", articleHandler.DeleteTasks)
 	r.PUT("/settings/:userID/default-prompts", settingsHandler.UpdateDefaultPrompts)
 	r.GET("/settings/:userID/default-prompts", settingsHandler.GetSettings)
+	r.POST("/articles", articleHandler.CreateArticle)
 	r.Run(":8080")
 }
